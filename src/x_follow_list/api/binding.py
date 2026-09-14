@@ -6,11 +6,8 @@ from typing import Annotated, Self
 from fastapi import APIRouter, Cookie, Header, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from x_follow_list.application.auth import (
-    SESSION_COOKIE_NAME,
-    AuthenticatedUser,
-    AuthService,
-)
+from x_follow_list.api.dependencies import authenticate_request
+from x_follow_list.application.auth import SESSION_COOKIE_NAME, AuthService
 from x_follow_list.application.binding import BindingSession, BrowserBindingService
 from x_follow_list.persistence.database import Database
 
@@ -66,21 +63,6 @@ def _services(request: Request) -> tuple[Database, AuthService, BrowserBindingSe
     )
 
 
-async def _authenticate(
-    request: Request,
-    session_token: str | None,
-    csrf_token: str | None = None,
-    *,
-    mutation: bool = False,
-) -> AuthenticatedUser:
-    database, auth_service, _binding_service = _services(request)
-    async with database.session() as session:
-        user = await auth_service.authenticate(session, session_token)
-    if mutation:
-        auth_service.verify_csrf(user, csrf_token)
-    return user
-
-
 def _response(binding: BindingSession) -> BindingResponse:
     identity = None
     if binding.detected_x_user_id is not None:
@@ -112,7 +94,7 @@ async def create_binding(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> BindingResponse:
-    user = await _authenticate(
+    user = await authenticate_request(
         request, session_token, csrf_token, mutation=True
     )
     _database, _auth_service, binding_service = _services(request)
@@ -135,7 +117,7 @@ async def get_binding(
     request: Request,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> BindingResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     _database, _auth_service, binding_service = _services(request)
     return _response(await binding_service.get(user.user_id, binding_id))
 
@@ -147,7 +129,7 @@ async def confirm_binding(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> BindingResponse:
-    user = await _authenticate(
+    user = await authenticate_request(
         request, session_token, csrf_token, mutation=True
     )
     _database, _auth_service, binding_service = _services(request)
@@ -162,7 +144,7 @@ async def cancel_binding(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> Response:
-    user = await _authenticate(
+    user = await authenticate_request(
         request, session_token, csrf_token, mutation=True
     )
     _database, _auth_service, binding_service = _services(request)

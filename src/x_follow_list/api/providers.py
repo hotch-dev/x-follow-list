@@ -6,7 +6,7 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Cookie, Header, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from x_follow_list.api.monitoring import _authenticate
+from x_follow_list.api.dependencies import authenticate_request
 from x_follow_list.application.auth import SESSION_COOKIE_NAME
 from x_follow_list.application.provider_configs import ProviderConfigService
 from x_follow_list.browser.contracts import BrowserCapabilities
@@ -81,7 +81,7 @@ async def list_providers(
     request: Request,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> ProviderListResponse:
-    await _authenticate(request, session_token)
+    await authenticate_request(request, session_token)
     items = [_descriptor(item) for item in _service(request).descriptors()]
     return ProviderListResponse(items=items)
 
@@ -95,7 +95,7 @@ async def create_provider_config(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> ProviderConfigResponse:
-    user = await _authenticate(request, session_token, csrf_token, mutation=True)
+    user = await authenticate_request(request, session_token, csrf_token, mutation=True)
     row = await _service(request).create(user.user_id, **payload.model_dump())
     return ProviderConfigResponse(**row)
 
@@ -105,7 +105,7 @@ async def list_provider_configs(
     request: Request,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> ProviderConfigListResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     return ProviderConfigListResponse(
         items=[
             ProviderConfigResponse(**row)
@@ -124,7 +124,7 @@ async def test_provider_config(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> CapabilityReportResponse:
-    user = await _authenticate(request, session_token, csrf_token, mutation=True)
+    user = await authenticate_request(request, session_token, csrf_token, mutation=True)
     report = await _service(request).validate(user.user_id, config_id)
     return CapabilityReportResponse(
         provider_code=report.provider_code,
@@ -141,7 +141,7 @@ async def list_profiles(
     request: Request,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> ProfileListResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     profiles = await _service(request).profiles(user.user_id, config_id)
     return ProfileListResponse(
         items=[

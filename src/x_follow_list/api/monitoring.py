@@ -6,7 +6,8 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Cookie, Header, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from x_follow_list.application.auth import SESSION_COOKIE_NAME, AuthenticatedUser, AuthService
+from x_follow_list.api.dependencies import authenticate_request
+from x_follow_list.application.auth import SESSION_COOKIE_NAME, AuthService
 from x_follow_list.application.errors import ApplicationError
 from x_follow_list.application.monitoring import MonitoringQueryService
 from x_follow_list.persistence.database import Database
@@ -108,21 +109,6 @@ def _services(request: Request) -> tuple[Database, AuthService, MonitoringQueryS
     )
 
 
-async def _authenticate(
-    request: Request,
-    session_token: str | None,
-    csrf_token: str | None = None,
-    *,
-    mutation: bool = False,
-) -> AuthenticatedUser:
-    database, auth_service, _monitoring = _services(request)
-    async with database.session() as session:
-        user = await auth_service.authenticate(session, session_token)
-    if mutation:
-        auth_service.verify_csrf(user, csrf_token)
-    return user
-
-
 def _scan(row: dict[str, Any]) -> ScanResponse:
     error = None
     if row.get("error_code") is not None:
@@ -147,7 +133,7 @@ async def list_accounts(
     request: Request,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> AccountListResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     _database, _auth, service = _services(request)
     rows = await service.list_accounts(user.user_id)
     return AccountListResponse(
@@ -177,7 +163,7 @@ async def create_scan(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> ScanResponse:
-    user = await _authenticate(request, session_token, csrf_token, mutation=True)
+    user = await authenticate_request(request, session_token, csrf_token, mutation=True)
     _database, _auth, service = _services(request)
     return _scan(
         await service.enqueue_scan(
@@ -193,7 +179,7 @@ async def list_scans(
     cursor: Annotated[str | None, Query(min_length=1, max_length=512)] = None,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> ScanListResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     _database, _auth, service = _services(request)
     rows, next_cursor = await service.list_scans(user.user_id, limit, cursor)
     return ScanListResponse(
@@ -207,7 +193,7 @@ async def get_scan(
     request: Request,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> ScanResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     _database, _auth, service = _services(request)
     return _scan(await service.get_scan(user.user_id, run_id))
 
@@ -225,7 +211,7 @@ async def list_relationships(
     cursor: Annotated[str | None, Query(min_length=1, max_length=512)] = None,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> RelationshipListResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     _database, _auth, service = _services(request)
     rows, next_cursor = await service.list_relationships(
         user.user_id,
@@ -251,7 +237,7 @@ async def list_events(
     cursor: Annotated[str | None, Query(min_length=1, max_length=512)] = None,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> EventListResponse:
-    user = await _authenticate(request, session_token)
+    user = await authenticate_request(request, session_token)
     _database, _auth, service = _services(request)
     rows, next_cursor = await service.list_events(
         user.user_id,
@@ -275,7 +261,7 @@ async def acknowledge_event(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> EventResponse:
-    user = await _authenticate(request, session_token, csrf_token, mutation=True)
+    user = await authenticate_request(request, session_token, csrf_token, mutation=True)
     _database, _auth, service = _services(request)
     return EventResponse(**await service.acknowledge_event(user.user_id, event_id, payload.version))
 
@@ -288,7 +274,7 @@ async def unbind_account(
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> Response:
-    user = await _authenticate(request, session_token, csrf_token, mutation=True)
+    user = await authenticate_request(request, session_token, csrf_token, mutation=True)
     if payload.delete_history:
         raise ApplicationError(
             "HISTORY_DELETE_DEFERRED", "History deletion is not available in this phase", 409

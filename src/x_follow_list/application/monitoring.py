@@ -94,12 +94,7 @@ class MonitoringQueryService:
                     parameters,
                 )
             ).mappings().all()
-        items = [dict(row) for row in rows[:limit]]
-        next_cursor = None
-        if len(rows) > limit:
-            last = items[-1]
-            next_cursor = _encode_cursor(last["created_at"], str(last["id"]))
-        return items, next_cursor
+        return _page(rows, limit, timestamp_key="created_at", resource_key="id")
 
     async def get_scan(self, user_id: str, run_id: str) -> dict[str, Any]:
         async with self._database.session() as session:
@@ -164,11 +159,9 @@ class MonitoringQueryService:
                     parameters,
                 )
             ).mappings().all()
-        items = [dict(row) for row in rows[:limit]]
-        next_cursor = None
-        if len(rows) > limit:
-            last = items[-1]
-            next_cursor = _encode_cursor(last["cursor_time"], str(last["x_user_id"]))
+        items, next_cursor = _page(
+            rows, limit, timestamp_key="cursor_time", resource_key="x_user_id"
+        )
         for item in items:
             item.pop("cursor_time")
         return items, next_cursor
@@ -222,11 +215,9 @@ class MonitoringQueryService:
                     parameters,
                 )
             ).mappings().all()
-        items = [dict(row) for row in rows[:limit]]
-        next_cursor = None
-        if len(rows) > limit:
-            last = items[-1]
-            next_cursor = _encode_cursor(last["created_at"], str(last["id"]))
+        items, next_cursor = _page(
+            rows, limit, timestamp_key="created_at", resource_key="id"
+        )
         for item in items:
             if item["status"] == "OPEN":
                 item["status"] = "NEW"
@@ -384,6 +375,20 @@ class MonitoringQueryService:
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _page(
+    rows: Any,
+    limit: int,
+    *,
+    timestamp_key: str,
+    resource_key: str,
+) -> tuple[list[dict[str, Any]], str | None]:
+    items = [dict(row) for row in rows[:limit]]
+    if len(rows) <= limit:
+        return items, None
+    last = items[-1]
+    return items, _encode_cursor(last[timestamp_key], str(last[resource_key]))
 
 
 def _encode_cursor(timestamp: object, resource_id: str) -> str:
