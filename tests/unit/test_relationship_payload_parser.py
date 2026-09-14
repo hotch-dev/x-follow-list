@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from x_follow_list.collector.models import RelationshipSide
 from x_follow_list.collector.parser import ParserChangedError, VersionedRelationshipParser
 

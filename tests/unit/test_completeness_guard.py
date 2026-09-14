@@ -1,4 +1,5 @@
 import pytest
+
 from x_follow_list.collector.completeness import (
     CompletenessError,
     CompletenessGuard,
@@ -67,7 +68,12 @@ def test_repeated_cursor_without_new_ids_fails_closed() -> None:
 
 
 def test_two_consecutive_nonterminal_empty_payloads_signal_parser_change() -> None:
-    pages = [page("1", cursor="a"), page(cursor="b"), page(cursor="c")]
+    pages = [
+        page("1", cursor="a"),
+        page(cursor="b"),
+        page(cursor="c"),
+        page("2", terminal=True),
+    ]
 
     with pytest.raises(CompletenessError) as caught:
         CompletenessGuard().validate(pages)
@@ -75,7 +81,7 @@ def test_two_consecutive_nonterminal_empty_payloads_signal_parser_change() -> No
     assert caught.value.code == "PARSER_CHANGED"
 
 
-@pytest.mark.parametrize("rejected,accepted", [(1, 99), (11, 2000)])
+@pytest.mark.parametrize("rejected,accepted", [(2, 197), (11, 2000)])
 def test_rejected_item_threshold_cannot_be_disabled(rejected: int, accepted: int) -> None:
     ids = tuple(str(index) for index in range(accepted))
 

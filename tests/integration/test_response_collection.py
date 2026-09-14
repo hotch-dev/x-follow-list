@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+
 from x_follow_list.collector.models import RelationshipSide
 from x_follow_list.collector.navigation import NeedsUserActionError
 from x_follow_list.collector.parser import VersionedRelationshipParser
