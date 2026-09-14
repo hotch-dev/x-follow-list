@@ -1,6 +1,6 @@
 # X 关注关系监控——阶段 A 开发计划
 
-> 状态：实施中 0.11（A-01 至 A-10 已完成）
+> 状态：实施中 0.12（A-01 至 A-11 已完成）
 > 日期：2026-09-14  
 > 输入：需求基线 1.3 + [阶段 A 技术设计](./phase-a-technical-design.md) 0.1  
 > 目标：可按任务顺序直接实施、测试和验收
@@ -173,7 +173,7 @@ flowchart LR
 **测试**：伪 Provider API + 可控 CDP 浏览器；错误 URL、恶意重定向、无效 token、已运行 profile、由本任务启动的 profile、断线和重复释放。发布前执行真实 AdsPower 本地模拟页冒烟测试。  
 **映射**：AC-01、AC-12、AC-17
 
-### A-11 扫描应用服务与 API
+### A-11 扫描应用服务与 API（已完成）
 
 **依赖**：A-03、A-05、A-06、A-08  
 **产物**：账号、绑定、扫描、关系、事件和进度 API
@@ -279,4 +279,4 @@ flowchart LR
 
 ## 7. 立即执行的下一项
 
-A-01 至 A-10 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)。下一项是 **A-11 扫描应用服务与 API**。
+A-01 至 A-11 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)。下一项是 **A-12 React 后台纵向闭环**。

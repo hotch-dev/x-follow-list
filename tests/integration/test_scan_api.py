@@ -20,6 +20,42 @@ from x_follow_list.persistence.migrations import alembic_config
 ORIGIN = "http://test"
 
 
+def test_a11_openapi_contract_exposes_required_routes_and_scan_idempotency(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(
+        environment=RuntimeEnvironment.TEST,
+        data_dir=tmp_path,
+        bootstrap_token=SecretStr("one-time-bootstrap-token"),
+        app_origin=ORIGIN,
+        session_ttl_seconds=3600,
+    )
+    schema = create_app(settings).openapi()
+    required_operations = {
+        ("/api/v1/browser-providers", "get"),
+        ("/api/v1/browser-provider-configs", "post"),
+        ("/api/v1/browser-provider-configs/{config_id}/test", "post"),
+        ("/api/v1/browser-provider-configs/{config_id}/profiles", "get"),
+        ("/api/v1/x-accounts", "get"),
+        ("/api/v1/x-accounts/{account_id}", "delete"),
+        ("/api/v1/x-accounts/{account_id}/scan-runs", "post"),
+        ("/api/v1/scan-runs", "get"),
+        ("/api/v1/scan-runs/{run_id}", "get"),
+        ("/api/v1/relationships", "get"),
+        ("/api/v1/relationship-events", "get"),
+        ("/api/v1/relationship-events/{event_id}/acknowledge", "post"),
+    }
+
+    assert all(method in schema["paths"][path] for path, method in required_operations)
+    scan_parameters = schema["paths"]["/api/v1/x-accounts/{account_id}/scan-runs"][
+        "post"
+    ]["parameters"]
+    idempotency = next(item for item in scan_parameters if item["name"] == "Idempotency-Key")
+    assert idempotency["in"] == "header"
+    assert idempotency["required"] is True
+    assert "204" in schema["paths"]["/api/v1/x-accounts/{account_id}"]["delete"]["responses"]
+
+
 async def prepared_app(tmp_path: Path) -> FastAPI:
     settings = Settings(
         environment=RuntimeEnvironment.TEST,
