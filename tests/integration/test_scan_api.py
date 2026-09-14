@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -49,15 +50,20 @@ async def login_and_seed(client: httpx.AsyncClient, app: FastAPI) -> tuple[str, 
     owner_id = str(bootstrap.json()["id"])
     csrf = str(login.json()["csrf_token"])
     now = datetime.now(UTC).isoformat()
+    profiles_root = (app.state.settings.data_dir / "managed-profiles").resolve()
     async with app.state.database.session() as session:
         await session.execute(
             text(
                 "INSERT INTO browser_provider_configs "
                 "(id,owner_user_id,provider_code,config_version,display_name,config_json,"
                 "created_at,updated_at) VALUES "
-                "('provider',:owner,'DIRECT_CHROME',1,'Chrome','{}',:now,:now)"
+                "('provider',:owner,'DIRECT_CHROME',1,'Chrome',:config,:now,:now)"
             ),
-            {"owner": owner_id, "now": now},
+            {
+                "owner": owner_id,
+                "config": json.dumps({"profiles_root": str(profiles_root)}),
+                "now": now,
+            },
         )
         await session.execute(
             text(
@@ -502,3 +508,27 @@ async def test_relationship_and_event_keyset_cursors_do_not_repeat_rows(
     assert event_cursor
     assert event_second.status_code == 200
     assert event_second.json()["items"][0]["id"] != event_first.json()["items"][0]["id"]
+
+
+@pytest.mark.asyncio
+async def test_unbind_executes_direct_chrome_managed_profile_deletion_policy(
+    tmp_path: Path,
+) -> None:
+    app = await prepared_app(tmp_path)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url=ORIGIN) as client:
+        _owner, csrf = await login_and_seed(client, app)
+        profile_path = tmp_path / "managed-profiles" / "profile"
+        profile_path.mkdir(parents=True)
+        (profile_path / ".x-follow-list-profile").write_text("managed", encoding="utf-8")
+
+        response = await client.request(
+            "DELETE",
+            "/api/v1/x-accounts/account",
+            headers=mutation_headers(csrf),
+            json={"version": 1, "delete_history": False},
+        )
+
+    await app.state.database.dispose()
+    assert response.status_code == 204
+    assert not profile_path.exists()
