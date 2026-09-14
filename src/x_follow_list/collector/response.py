@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Protocol
 
 from x_follow_list.collector.completeness import CompletenessGuard
@@ -10,6 +10,7 @@ from x_follow_list.collector.parser import VersionedRelationshipParser
 
 class ResponseLike(Protocol):
     url: str
+    headers: Mapping[str, str]
 
     async def json(self) -> object: ...
 
@@ -38,16 +39,19 @@ class ResponseCollector:
         responses: list[ResponseLike] = []
 
         def on_response(response: ResponseLike) -> None:
-            if "/api/relationships" not in response.url:
+            content_type = response.headers.get("content-type", "").lower()
+            if "json" not in content_type:
                 return
             responses.append(response)
 
         page.on("response", on_response)
         try:
             displayed_total = await navigate(page, side)
-            parsed_pages = [
-                self._parser.parse(await response.json(), side) for response in responses
-            ]
+            parsed_pages = []
+            for response in responses:
+                payload = await response.json()
+                if self._parser.is_candidate(payload):
+                    parsed_pages.append(self._parser.parse(payload, side))
             return self._guard.validate(
                 parsed_pages,
                 displayed_total=displayed_total,

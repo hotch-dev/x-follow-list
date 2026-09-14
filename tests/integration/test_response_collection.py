@@ -14,6 +14,7 @@ from x_follow_list.collector.response import ResponseCollector
 class FakeResponse:
     def __init__(self, payload: object, url: str) -> None:
         self.url = url
+        self.headers = {"content-type": "application/json"}
         self._payload = payload
 
     async def json(self) -> object:

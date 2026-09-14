@@ -13,8 +13,12 @@ class PayloadClassifier:
     """Recognize candidate relationship payloads by structure, not endpoint hashes."""
 
     @staticmethod
+    def is_candidate(payload: object) -> bool:
+        return isinstance(payload, Mapping) and payload.get("kind") == "relationship_list"
+
+    @staticmethod
     def classify(payload: object) -> str | None:
-        if not isinstance(payload, Mapping) or payload.get("kind") != "relationship_list":
+        if not PayloadClassifier.is_candidate(payload) or not isinstance(payload, Mapping):
             return None
         schema_version = payload.get("schema_version")
         return schema_version if isinstance(schema_version, str) else None
@@ -25,6 +29,9 @@ class VersionedRelationshipParser:
 
     def __init__(self, classifier: PayloadClassifier | None = None) -> None:
         self._classifier = classifier or PayloadClassifier()
+
+    def is_candidate(self, payload: object) -> bool:
+        return self._classifier.is_candidate(payload)
 
     def parse(self, payload: object, expected_side: RelationshipSide) -> ParsedPage:
         schema_version = self._classifier.classify(payload)
