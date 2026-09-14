@@ -85,8 +85,11 @@ def _settings(config: ProviderConfig) -> _Settings:
     timeout = values.get("request_timeout_seconds", 5.0)
     attempts = values.get("retry_attempts", 2)
     max_bytes = values.get("max_response_bytes", 1_048_576)
+    parsed_api_url = urlsplit(api_url) if isinstance(api_url, str) else None
     if (
         not isinstance(api_url, str)
+        or parsed_api_url is None
+        or parsed_api_url.path not in {"", "/"}
         or api_version != "v2"
         or not isinstance(provider_version, str)
         or isinstance(timeout, bool)
@@ -158,10 +161,10 @@ def _validate_cdp_endpoint(endpoint: str, config: ProviderConfig) -> str:
         parsed = urlsplit(endpoint)
         host = parsed.hostname
         port = parsed.port
-    except ValueError as error:
+    except ValueError:
         raise AdsPowerProviderError(
             "UNSAFE_CDP_ENDPOINT", "CDP endpoint is not permitted by policy"
-        ) from error
+        ) from None
     if (
         parsed.scheme not in {"ws", "wss", "http", "https"}
         or not host
@@ -212,7 +215,11 @@ class AdsPowerApiClient:
                 raise AdsPowerProviderError(
                     "PROVIDER_RESPONSE_INVALID", "AdsPower response is invalid"
                 )
-            items = [dict(item) for item in raw_items if isinstance(item, Mapping)]
+            items = [
+                {"profile_id": item.get("profile_id"), "name": item.get("name")}
+                for item in raw_items
+                if isinstance(item, Mapping)
+            ]
             profiles.extend(items)
             if len(raw_items) < 100:
                 return profiles
