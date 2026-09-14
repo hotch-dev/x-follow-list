@@ -90,6 +90,13 @@ async def test_binding_api_creates_queries_and_confirms_detected_identity(
             f"/api/v1/x-account-bind-sessions/{binding_id}/confirm",
             headers={"Origin": "http://test", "X-CSRF-Token": csrf_token},
         )
+        account_id = str(confirmed.json()["account_id"])
+        await service.mark_reauth_required(owner_id, account_id)
+        revalidation = await client.post(
+            "/api/v1/x-account-bind-sessions",
+            headers={"Origin": "http://test", "X-CSRF-Token": csrf_token},
+            json={"x_account_id": account_id},
+        )
 
     await app.state.database.dispose()
     assert created.status_code == 202
@@ -105,6 +112,9 @@ async def test_binding_api_creates_queries_and_confirms_detected_identity(
     assert confirmed.json()["status"] == "CONFIRMED"
     assert confirmed.json()["account_id"]
     assert confirmed.json()["owner_user_id"] == owner_id
+    assert revalidation.status_code == 202
+    assert revalidation.json()["target_account_id"] == account_id
+    assert revalidation.json()["profile_ref"] == "profile-one"
 
 
 @pytest.mark.asyncio
