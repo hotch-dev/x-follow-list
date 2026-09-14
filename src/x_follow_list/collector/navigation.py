@@ -35,16 +35,16 @@ class DomNavigator:
                 )"""
             )
             await self._raise_for_challenge(page)
-            if await page.locator('[data-testid="load-error"]').count():
+            if await page.locator('[data-testid="load-error"]').is_visible():
                 raise NavigationError("relationship page loading was interrupted")
-            if await page.locator('[data-testid="terminal"]').count():
+            if await page.locator('[data-testid="terminal"]').is_visible():
                 total = await page.locator(
                     '[data-testid="relationship-view"]'
                 ).get_attribute("data-total")
                 return int(total) if total is not None and total.isdigit() else None
 
             load_more = page.locator('[data-testid="load-more"]')
-            if not await load_more.count():
+            if not await load_more.is_visible():
                 raise NavigationError("relationship page has no terminal or continuation")
             previous = await page.locator("body").get_attribute("data-page-count")
             await load_more.click()
@@ -60,5 +60,5 @@ class DomNavigator:
 
     @staticmethod
     async def _raise_for_challenge(page: Any) -> None:
-        if await page.locator('[data-testid="challenge"]').count():
+        if await page.locator('[data-testid="challenge"]').is_visible():
             raise NeedsUserActionError("account requires user action")

@@ -47,12 +47,13 @@ class FixtureHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/relationships":
             query = parse_qs(parsed.query)
             scenario = query.get("scenario", ["normal"])[0]
-            if scenario == "disconnect":
+            page_number = int(query.get("page", ["1"])[0])
+            if scenario == "disconnect" and page_number > 1:
                 self.connection.close()
                 return
             payload = relationship_payload(
                 query.get("side", ["FOLLOWER"])[0],
-                int(query.get("page", ["1"])[0]),
+                page_number,
                 scenario,
             )
             body = json.dumps(payload).encode()

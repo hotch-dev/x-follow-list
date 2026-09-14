@@ -9,13 +9,28 @@ class ParserChangedError(ValueError):
     """A safe, actionable parsing failure that never includes raw response data."""
 
 
+class PayloadClassifier:
+    """Recognize candidate relationship payloads by structure, not endpoint hashes."""
+
+    @staticmethod
+    def classify(payload: object) -> str | None:
+        if not isinstance(payload, Mapping) or payload.get("kind") != "relationship_list":
+            return None
+        schema_version = payload.get("schema_version")
+        return schema_version if isinstance(schema_version, str) else None
+
+
 class VersionedRelationshipParser:
     version = "1"
 
+    def __init__(self, classifier: PayloadClassifier | None = None) -> None:
+        self._classifier = classifier or PayloadClassifier()
+
     def parse(self, payload: object, expected_side: RelationshipSide) -> ParsedPage:
-        if not isinstance(payload, Mapping) or payload.get("kind") != "relationship_list":
+        schema_version = self._classifier.classify(payload)
+        if schema_version is None or not isinstance(payload, Mapping):
             raise ParserChangedError("relationship response structure is not recognized")
-        if payload.get("schema_version") != self.version:
+        if schema_version != self.version:
             raise ParserChangedError("relationship response schema version is not supported")
         if payload.get("relationship") != expected_side.value:
             raise ParserChangedError("relationship side does not match the active collection")

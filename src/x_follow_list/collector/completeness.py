@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from x_follow_list.collector.models import ParsedPage, ValidatedCollection
+from x_follow_list.collector.models import ObservedProfile, ParsedPage, ValidatedCollection
 
 
 class CompletenessError(ValueError):
@@ -27,7 +27,7 @@ class CompletenessGuard:
                 "INCOMPLETE_SUSPECTED", "relationship pagination did not end explicitly"
             )
 
-        members: dict[str, object] = {}
+        members: dict[str, ObservedProfile] = {}
         seen_cursors: set[str] = set()
         consecutive_empty = 0
         accepted_count = 0
@@ -82,7 +82,7 @@ class CompletenessGuard:
                 "relationship count dropped unusually and requires independent confirmation",
             )
         return ValidatedCollection(
-            items=tuple(members.values()),  # type: ignore[arg-type]
+            items=tuple(members.values()),
             schema_versions=frozenset(page.schema_version for page in pages),
             unusual_drop_confirmed=confirmed,
         )
