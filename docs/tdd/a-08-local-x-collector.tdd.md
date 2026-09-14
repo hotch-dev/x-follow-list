@@ -67,13 +67,13 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 
 | 阶段 | 提交 | 证据 |
 | --- | --- | --- |
-| RED 1 | `6f6013e` | 缺失 parser/guard/response collector 的失败契约 |
-| GREEN 1 | `5f87592` | parser、完整性门禁和响应收集 20 tests passed |
-| RED 2 | `5bb7464` | 缺失 pipeline/DOM Navigator 的失败旅程 |
-| GREEN 2 | `26e072e` | 本地 SPA + Chrome E2E 与双侧发布转绿 |
-| REFACTOR | `39e27d7` | 顺序解析、显式 classifier、真实中途断线后同一 E2E 通过 |
-| RED 3 | `9a20a5f` | 固定 endpoint 过滤的回归测试失败 |
-| GREEN 3 | `2acab50` | MIME + 结构分类转绿且 Chrome E2E 继续通过 |
+| RED 1 | `a3e0736` | 缺失 parser/guard/response collector 的失败契约 |
+| GREEN 1 | `7bbd821` | parser、完整性门禁和响应收集 20 tests passed |
+| RED 2 | `dc73ad8` | 缺失 pipeline/DOM Navigator 的失败旅程 |
+| GREEN 2 | `33923cf` | 本地 SPA + Chrome E2E 与双侧发布转绿 |
+| REFACTOR | `eef3784` | 顺序解析、显式 classifier、真实中途断线后同一 E2E 通过 |
+| RED 3 | `fd16080` | 固定 endpoint 过滤的回归测试失败 |
+| GREEN 3 | `f883ba3` | MIME + 结构分类转绿且 Chrome E2E 继续通过 |
 
 这些检查点均位于当前 `main` 的 A-08 连续提交链中，未 squash 或改写。
 

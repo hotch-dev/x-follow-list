@@ -20,12 +20,12 @@
 
 | RED | 命令与失败原因 | 检查点 |
 | --- | --- | --- |
-| Direct Chrome 契约 | contract 目标因缺少 `x_follow_list.browser.direct_chrome` 在收集阶段失败 | `4f706eb` |
-| 持久化绑定生命周期 | 集成目标因缺少 `x_follow_list.application.binding` 在收集阶段失败 | `00dadfd` |
-| 绑定 HTTP 契约 | 3 个旅程因路由不存在得到 404/缺少返回 ID | `8fa8906` |
-| 交互式绑定 worker | 收集阶段 `ModuleNotFoundError: x_follow_list.worker.browser_binding` | `5c8a05b` |
-| `REAUTH_REQUIRED` 重新验证 | 原有 5 项通过，新增旅程以缺少 `mark_reauth_required` 的 `AttributeError` 失败 | `f60d941` |
-| 重新验证 HTTP 契约 | 使用 `x_account_id` 创建重新验证任务时得到 422，而契约要求 202 | `b849b21` |
+| Direct Chrome 契约 | contract 目标因缺少 `x_follow_list.browser.direct_chrome` 在收集阶段失败 | `f8a043d` |
+| 持久化绑定生命周期 | 集成目标因缺少 `x_follow_list.application.binding` 在收集阶段失败 | `0812d95` |
+| 绑定 HTTP 契约 | 3 个旅程因路由不存在得到 404/缺少返回 ID | `eecf924` |
+| 交互式绑定 worker | 收集阶段 `ModuleNotFoundError: x_follow_list.worker.browser_binding` | `47e3aca` |
+| `REAUTH_REQUIRED` 重新验证 | 原有 5 项通过，新增旅程以缺少 `mark_reauth_required` 的 `AttributeError` 失败 | `74a20e1` |
+| 重新验证 HTTP 契约 | 使用 `x_account_id` 创建重新验证任务时得到 422，而契约要求 202 | `1c2e64e` |
 
 这些 RED 均由目标行为尚不存在产生，不是语法、依赖或环境故障。Playwright 在受限沙箱创建 Windows 命名管道时出现的 `WinError 5` 不计作业务 RED；同一 E2E 经授权运行后通过。
 
@@ -71,14 +71,14 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 
 | 阶段 | 提交 | 内容 |
 | --- | --- | --- |
-| RED 1 / GREEN 1 | `4f706eb` / `d0ad262` | Direct Chrome 契约与隔离实现 |
-| RED 2 / GREEN 2 | `00dadfd` / `b5380d3` | 持久化绑定生命周期与迁移 |
-| RED 3 / GREEN 3 | `8fa8906` / `2cb14a0` | 绑定 API、认证与 CSRF |
-| E2E | `578baed` | 真实 Chrome profile 重启、扫描和删除 |
-| RED 4 / GREEN 4 | `5c8a05b` / `46d0d8b` | 交互式绑定 worker |
-| RED 5 / GREEN 5 | `f60d941` / `6900c48` | `REAUTH_REQUIRED` 与稳定身份重新验证 |
-| RED 6 / GREEN 6 | `b849b21` / `bc18978` | 重新验证 API |
-| REFACTOR | `858a571` | 共享 E2E fixture 与测试包边界 |
+| RED 1 / GREEN 1 | `f8a043d` / `8141acb` | Direct Chrome 契约与隔离实现 |
+| RED 2 / GREEN 2 | `0812d95` / `8b824ae` | 持久化绑定生命周期与迁移 |
+| RED 3 / GREEN 3 | `eecf924` / `9d8ee10` | 绑定 API、认证与 CSRF |
+| E2E | `b272d7f` | 真实 Chrome profile 重启、扫描和删除 |
+| RED 4 / GREEN 4 | `47e3aca` / `ec720eb` | 交互式绑定 worker |
+| RED 5 / GREEN 5 | `74a20e1` / `615cc5e` | `REAUTH_REQUIRED` 与稳定身份重新验证 |
+| RED 6 / GREEN 6 | `1c2e64e` / `b87f5ae` | 重新验证 API |
+| REFACTOR | `5218a53` | 共享 E2E fixture 与测试包边界 |
 
 所有检查点位于当前 `main` 连续提交链，未 squash 或改写。
 
