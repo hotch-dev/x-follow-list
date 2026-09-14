@@ -9,6 +9,7 @@ from x_follow_list.collector.navigation import DomNavigator, NavigationError, Ne
 from x_follow_list.collector.parser import ParserChangedError, VersionedRelationshipParser
 from x_follow_list.collector.response import ResponseCollector
 
+
 @pytest.mark.asyncio
 async def test_local_spa_covers_success_and_fail_closed_scenarios(
     fixture_origin: str,
