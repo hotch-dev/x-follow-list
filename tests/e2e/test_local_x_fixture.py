@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -72,7 +73,7 @@ class FixtureHandler(BaseHTTPRequestHandler):
 
 
 @pytest.fixture
-def fixture_origin() -> str:
+def fixture_origin() -> Iterator[str]:
     server = ThreadingHTTPServer(("127.0.0.1", 0), FixtureHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

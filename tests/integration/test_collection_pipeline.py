@@ -4,13 +4,13 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from x_follow_list.collector.pipeline import RelationshipCollectionPipeline
 
 from x_follow_list.collector.models import (
     ObservedProfile,
     RelationshipSide,
     ValidatedCollection,
 )
+from x_follow_list.collector.pipeline import RelationshipCollectionPipeline
 
 
 class StubCollector:
@@ -22,8 +22,11 @@ class StubCollector:
         _page: Any,
         _navigate: Any,
         side: RelationshipSide,
-        **_options: object,
+        *,
+        previous_ids: frozenset[str] = frozenset(),
+        confirmed_drop_ids: frozenset[str] | None = None,
     ) -> ValidatedCollection:
+        del previous_ids, confirmed_drop_ids
         if side is self.fail_on:
             raise RuntimeError("collection failed")
         return ValidatedCollection(
