@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { createBinding, listProfiles, listProviderConfigs } from './api'
+import { PageHeader } from './PageHeader'
 
 export function AccountsPage({ csrfToken }: { csrfToken: string }) {
   const [configId, setConfigId] = useState('')
@@ -22,11 +23,9 @@ export function AccountsPage({ csrfToken }: { csrfToken: string }) {
 
   return (
     <section className="dashboard" aria-labelledby="accounts-title">
-      <header className="page-header">
-        <p className="eyebrow">X Follow List</p>
-        <h1 id="accounts-title">X 账号管理</h1>
-        <p>选择 Provider 已有的独立浏览器环境，再由你手工完成 X 登录。</p>
-      </header>
+      <PageHeader title="X 账号管理" titleId="accounts-title">
+        选择 Provider 已有的独立浏览器环境，再由你手工完成 X 登录。
+      </PageHeader>
       <form
         className="card form-card"
         onSubmit={(event) => {

@@ -1,4 +1,5 @@
 import type { Account, ScanRun } from './api'
+import { PageHeader } from './PageHeader'
 
 interface DashboardData {
   accounts: Account[]
@@ -37,11 +38,9 @@ export function Dashboard({ data }: { data: DashboardData }) {
 
   return (
     <div className="dashboard">
-      <header className="page-header">
-        <p className="eyebrow">X Follow List</p>
-        <h1>总览</h1>
-        <p>关系变化一目了然，异常扫描不会覆盖最后一次可靠数据。</p>
-      </header>
+      <PageHeader title="总览">
+        关系变化一目了然，异常扫描不会覆盖最后一次可靠数据。
+      </PageHeader>
       <section className="summary-grid" aria-label="账号摘要">
         <article className="card account-card">
           <p className="card-label">监控账号</p>
