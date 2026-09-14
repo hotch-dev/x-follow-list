@@ -165,3 +165,64 @@ async def test_binding_owner_boundary_and_profile_conflicts_fail_closed(
         await service.confirm("owner", created.session_id)
 
     await database.dispose()
+
+
+@pytest.mark.asyncio
+async def test_revalidation_restores_ready_only_for_the_same_detected_x_identity(
+    tmp_path: Path,
+) -> None:
+    database = await prepared_database(tmp_path)
+    service = BrowserBindingService(database)
+    initial = await service.create("owner", "provider", "profile-one")
+    initial_claim = await service.claim_next("initial-worker")
+    assert initial_claim is not None
+    await service.record_detected_identity(
+        initial_claim,
+        x_user_id="x-123",
+        username="alice",
+        display_name="Alice",
+    )
+    account_id = await service.confirm("owner", initial.session_id)
+
+    await service.mark_reauth_required("owner", account_id)
+    revalidation = await service.create_revalidation("owner", account_id)
+    revalidation_claim = await service.claim_next("revalidation-worker")
+    assert revalidation_claim is not None
+    await service.record_detected_identity(
+        revalidation_claim,
+        x_user_id="x-123",
+        username="alice-renamed",
+        display_name="Alice Updated",
+    )
+    confirmed_account_id = await service.confirm("owner", revalidation.session_id)
+
+    await service.mark_reauth_required("owner", account_id)
+    mismatched = await service.create_revalidation("owner", account_id)
+    mismatched_claim = await service.claim_next("mismatched-worker")
+    assert mismatched_claim is not None
+    await service.record_detected_identity(
+        mismatched_claim,
+        x_user_id="x-999",
+        username="mallory",
+        display_name="Mallory",
+    )
+    with pytest.raises(BindingConflictError):
+        await service.confirm("owner", mismatched.session_id)
+
+    async with database.session() as session:
+        account = (
+            await session.execute(
+                text(
+                    "SELECT status,x_user_id,username,display_name FROM x_accounts "
+                    "WHERE id=:id"
+                ),
+                {"id": account_id},
+            )
+        ).one()
+        account_count = await session.scalar(text("SELECT count(*) FROM x_accounts"))
+    await database.dispose()
+
+    assert revalidation.target_account_id == account_id
+    assert confirmed_account_id == account_id
+    assert account == ("REAUTH_REQUIRED", "x-123", "alice-renamed", "Alice Updated")
+    assert account_count == 1
