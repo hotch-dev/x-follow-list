@@ -288,3 +288,51 @@ async def test_relationship_and_event_queries_filter_and_acknowledge_with_versio
     assert stale.status_code == 409
     assert stale.json()["code"] == "RESOURCE_VERSION_CONFLICT"
     assert foreign.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_scan_cursor_is_stable_and_domain_open_status_is_exposed_as_new(
+    tmp_path: Path,
+) -> None:
+    app = await prepared_app(tmp_path)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url=ORIGIN) as client:
+        _owner, _csrf = await login_and_seed(client, app)
+        await seed_relationships(app)
+        now = datetime.now(UTC)
+        async with app.state.database.session() as session:
+            for index in range(3):
+                await session.execute(
+                    text(
+                        "INSERT INTO scan_runs "
+                        "(id,x_account_id,requested_by_user_id,status,created_at) "
+                        "SELECT :id,'account',owner_user_id,'FAILED',:created "
+                        "FROM x_accounts WHERE id='account'"
+                    ),
+                    {
+                        "id": f"page-run-{index}",
+                        "created": (now + timedelta(seconds=index)).isoformat(),
+                    },
+                )
+            await session.execute(
+                text("UPDATE relationship_events SET status='OPEN' WHERE id='event'")
+            )
+            await session.commit()
+
+        first = await client.get("/api/v1/scan-runs?limit=2")
+        cursor = first.json()["next_cursor"]
+        second = await client.get(f"/api/v1/scan-runs?limit=2&cursor={cursor}")
+        new_events = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&status=NEW"
+        )
+        malformed = await client.get("/api/v1/scan-runs?cursor=not-a-cursor")
+
+    await app.state.database.dispose()
+    first_ids = [item["id"] for item in first.json()["items"]]
+    second_ids = [item["id"] for item in second.json()["items"]]
+    assert first.status_code == second.status_code == 200
+    assert cursor
+    assert set(first_ids).isdisjoint(second_ids)
+    assert new_events.json()["items"][0]["status"] == "NEW"
+    assert malformed.status_code == 422
+    assert malformed.json()["code"] == "REQUEST_VALIDATION_FAILED"
