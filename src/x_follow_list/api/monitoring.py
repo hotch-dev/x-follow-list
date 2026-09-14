@@ -178,12 +178,15 @@ async def create_scan(
 async def list_scans(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=512)] = None,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> ScanListResponse:
     user = await _authenticate(request, session_token)
     _database, _auth, service = _services(request)
-    rows = await service.list_scans(user.user_id, limit)
-    return ScanListResponse(items=[_scan(row) for row in rows])
+    rows, next_cursor = await service.list_scans(user.user_id, limit, cursor)
+    return ScanListResponse(
+        items=[_scan(row) for row in rows], next_cursor=next_cursor
+    )
 
 
 @router.get("/scan-runs/{run_id}", response_model=ScanResponse)

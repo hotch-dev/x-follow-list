@@ -15,7 +15,6 @@ from x_follow_list.browser.registry import BrowserProviderRegistry
 from x_follow_list.config import RuntimeEnvironment, Settings
 from x_follow_list.persistence.migrations import alembic_config
 
-
 ORIGIN = "http://test"
 
 

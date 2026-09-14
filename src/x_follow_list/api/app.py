@@ -11,10 +11,16 @@ from fastapi.responses import JSONResponse
 from x_follow_list.api.auth import router as auth_router
 from x_follow_list.api.binding import router as binding_router
 from x_follow_list.api.monitoring import router as monitoring_router
+from x_follow_list.api.providers import router as providers_router
 from x_follow_list.application.auth import AuthService
 from x_follow_list.application.binding import BrowserBindingService
 from x_follow_list.application.errors import ApplicationError
 from x_follow_list.application.monitoring import MonitoringQueryService
+from x_follow_list.application.provider_configs import ProviderConfigService
+from x_follow_list.browser.adspower import AdsPowerProvider
+from x_follow_list.browser.contracts import BrowserProvider
+from x_follow_list.browser.direct_chrome import DirectChromeProvider
+from x_follow_list.browser.registry import BrowserProviderRegistry
 from x_follow_list.config import Settings
 from x_follow_list.observability.logging import configure_logging, log_context
 from x_follow_list.persistence.database import Database
@@ -25,7 +31,11 @@ SERVICE_NAME: Final = "x-follow-list-api"
 SAFE_REQUEST_ID: Final = re.compile(r"[A-Za-z0-9._-]{1,64}")
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    browser_provider_registry: BrowserProviderRegistry | None = None,
+) -> FastAPI:
     runtime_settings = settings or Settings.from_env()
     database = Database.from_settings(runtime_settings)
     bootstrap_tokens = BootstrapTokenManager(runtime_settings)
@@ -38,6 +48,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.auth_service = auth_service
     app.state.browser_binding_service = BrowserBindingService(database)
     app.state.monitoring_query_service = MonitoringQueryService(database)
+    providers: tuple[BrowserProvider, ...] = (
+        DirectChromeProvider(),
+        AdsPowerProvider(),
+    )
+    registry = browser_provider_registry or BrowserProviderRegistry(providers)
+    app.state.browser_provider_registry = registry
+    app.state.provider_config_service = ProviderConfigService(database, registry)
 
     @app.middleware("http")
     async def correlate_request(
@@ -123,6 +140,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(binding_router)
     app.include_router(monitoring_router)
+    app.include_router(providers_router)
 
     return app
 

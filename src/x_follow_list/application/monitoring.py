@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -58,7 +60,18 @@ class MonitoringQueryService:
             ) from None
         return await self.get_scan(user_id, run_id)
 
-    async def list_scans(self, user_id: str, limit: int) -> list[dict[str, Any]]:
+    async def list_scans(
+        self, user_id: str, limit: int, cursor: str | None
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        cursor_value = _decode_cursor(cursor)
+        cursor_clause = ""
+        parameters: dict[str, object] = {"user": user_id, "limit": limit + 1}
+        if cursor_value is not None:
+            cursor_clause = (
+                "AND (r.created_at < :cursor_time OR "
+                "(r.created_at = :cursor_time AND r.id < :cursor_id)) "
+            )
+            parameters["cursor_time"], parameters["cursor_id"] = cursor_value
         async with self._database.session() as session:
             rows = (
                 await session.execute(
@@ -66,12 +79,19 @@ class MonitoringQueryService:
                         "SELECT r.*,a.last_successful_scan_at FROM x_account_memberships m "
                         "JOIN scan_runs r ON r.x_account_id=m.x_account_id "
                         "JOIN x_accounts a ON a.id=r.x_account_id "
-                        "WHERE m.user_id=:user ORDER BY r.created_at DESC,r.id DESC LIMIT :limit"
+                        "WHERE m.user_id=:user "
+                        + cursor_clause
+                        + "ORDER BY r.created_at DESC,r.id DESC LIMIT :limit"
                     ),
-                    {"user": user_id, "limit": limit},
+                    parameters,
                 )
             ).mappings().all()
-        return [dict(row) for row in rows]
+        items = [dict(row) for row in rows[:limit]]
+        next_cursor = None
+        if len(rows) > limit:
+            last = items[-1]
+            next_cursor = _encode_cursor(last["created_at"], str(last["id"]))
+        return items, next_cursor
 
     async def get_scan(self, user_id: str, run_id: str) -> dict[str, Any]:
         async with self._database.session() as session:
@@ -148,6 +168,9 @@ class MonitoringQueryService:
             ("event_type", event_type),
         ):
             if value is not None:
+                if column == "status" and value == "NEW":
+                    clauses.append("e.status IN ('NEW','OPEN')")
+                    continue
                 clauses.append(f"e.{column}=:{column}")
                 parameters[column] = value
         async with self._database.session() as session:
@@ -167,7 +190,11 @@ class MonitoringQueryService:
                     parameters,
                 )
             ).mappings().all()
-        return [dict(row) for row in rows]
+        items = [dict(row) for row in rows]
+        for item in items:
+            if item["status"] == "OPEN":
+                item["status"] = "NEW"
+        return items
 
     async def acknowledge_event(
         self, user_id: str, event_id: str, expected_version: int
@@ -229,3 +256,29 @@ class MonitoringQueryService:
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
+
+def _encode_cursor(timestamp: object, resource_id: str) -> str:
+    if isinstance(timestamp, datetime):
+        timestamp = timestamp.isoformat()
+    payload = json.dumps([str(timestamp), resource_id], separators=(",", ":")).encode()
+    return base64.urlsafe_b64encode(payload).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str | None) -> tuple[str, str] | None:
+    if cursor is None:
+        return None
+    try:
+        padding = "=" * (-len(cursor) % 4)
+        value = json.loads(base64.b64decode(cursor + padding, altchars=b"-_", validate=True))
+        if (
+            not isinstance(value, list)
+            or len(value) != 2
+            or not all(isinstance(item, str) and item for item in value)
+        ):
+            raise ValueError
+        datetime.fromisoformat(value[0].replace("Z", "+00:00"))
+        return value[0], value[1]
+    except (ValueError, TypeError, json.JSONDecodeError):
+        raise ApplicationError(
+            "REQUEST_VALIDATION_FAILED", "Request validation failed", 422, {"errors": []}
+        ) from None
