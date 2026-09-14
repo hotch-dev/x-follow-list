@@ -10,9 +10,11 @@ from fastapi.responses import JSONResponse
 
 from x_follow_list.api.auth import router as auth_router
 from x_follow_list.api.binding import router as binding_router
+from x_follow_list.api.monitoring import router as monitoring_router
 from x_follow_list.application.auth import AuthService
 from x_follow_list.application.binding import BrowserBindingService
 from x_follow_list.application.errors import ApplicationError
+from x_follow_list.application.monitoring import MonitoringQueryService
 from x_follow_list.config import Settings
 from x_follow_list.observability.logging import configure_logging, log_context
 from x_follow_list.persistence.database import Database
@@ -35,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.database = database
     app.state.auth_service = auth_service
     app.state.browser_binding_service = BrowserBindingService(database)
+    app.state.monitoring_query_service = MonitoringQueryService(database)
 
     @app.middleware("http")
     async def correlate_request(
@@ -119,6 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(binding_router)
+    app.include_router(monitoring_router)
 
     return app
 

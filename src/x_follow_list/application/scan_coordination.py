@@ -16,6 +16,10 @@ class IdempotencyConflictError(RuntimeError):
     """An idempotency key was reused for a different request."""
 
 
+class ScanAlreadyActiveError(RuntimeError):
+    """The account already has a queued or running scan."""
+
+
 class LeaseConflictError(RuntimeError):
     """A required browser resource is held by another task."""
 
@@ -84,6 +88,15 @@ class ScanCoordinator:
                 )
                 if account_exists is None:
                     raise LookupError("ready account not found")
+                active_run = await connection.scalar(
+                    text(
+                        "SELECT 1 FROM scan_runs WHERE x_account_id=:account "
+                        "AND status IN ('QUEUED','RUNNING') LIMIT 1"
+                    ),
+                    {"account": x_account_id},
+                )
+                if active_run is not None:
+                    raise ScanAlreadyActiveError("account already has an active scan")
                 run_id = str(uuid4())
                 now_value = now.isoformat()
                 await connection.execute(

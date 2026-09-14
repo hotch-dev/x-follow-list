@@ -362,7 +362,10 @@ class SnapshotCommitService:
                 if event_parameters:
                     await session.execute(
                         text(
-                            "INSERT OR IGNORE INTO relationship_events VALUES (:id,:a,:r,:x,:c,:t,:d,:st,:n)"
+                            "INSERT OR IGNORE INTO relationship_events "
+                            "(id,x_account_id,scan_run_id,subject_x_user_id,category,"
+                            "event_type,dedupe_key,status,created_at) "
+                            "VALUES (:id,:a,:r,:x,:c,:t,:d,:st,:n)"
                         ),
                         event_parameters,
                     )

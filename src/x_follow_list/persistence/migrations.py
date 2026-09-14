@@ -7,7 +7,7 @@ from alembic.config import Config
 from x_follow_list.config import Settings
 
 BASELINE_REVISION = "0001_a02_baseline"
-HEAD_REVISION = "0006_a09_binding_revalidation"
+HEAD_REVISION = "0007_a11_event_versions"
 
 
 def alembic_config(settings: Settings) -> Config:

@@ -15,7 +15,6 @@ from x_follow_list.api.app import create_app
 from x_follow_list.config import RuntimeEnvironment, Settings
 from x_follow_list.persistence.migrations import alembic_config
 
-
 ORIGIN = "http://test"
 
 
@@ -181,7 +180,9 @@ async def test_scan_lists_and_details_keep_failure_separate_from_last_success(
         "code": "INCOMPLETE_SUSPECTED",
         "summary": "Retry the scan",
     }
-    assert detail.json()["last_successful_scan_at"] == last_success.isoformat()
+    assert detail.json()["last_successful_scan_at"] == last_success.isoformat().replace(
+        "+00:00", "Z"
+    )
     assert invalid_limit.status_code == 422
 
 
@@ -287,4 +288,3 @@ async def test_relationship_and_event_queries_filter_and_acknowledge_with_versio
     assert stale.status_code == 409
     assert stale.json()["code"] == "RESOURCE_VERSION_CONFLICT"
     assert foreign.status_code == 404
-
