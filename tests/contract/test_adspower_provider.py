@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Callable
-from typing import Any
 
 import httpx
 import pytest
@@ -17,7 +15,6 @@ from x_follow_list.browser.contracts import (
     BrowserSessionRequest,
     ProviderConfig,
 )
-
 
 TOKEN = "super-secret-adspower-token"
 CDP_URL = "ws://127.0.0.1:49200/devtools/browser/private-browser-id"
@@ -188,7 +185,10 @@ async def test_lists_only_existing_profiles_without_mutating_them() -> None:
         ("existing-1", "Existing one", True),
         ("existing-2", "Existing two", True),
     ]
-    assert all("create" not in path and "update" not in path and "delete" not in path for _, path in api.calls)
+    assert all(
+        "create" not in path and "update" not in path and "delete" not in path
+        for _, path in api.calls
+    )
 
 
 @pytest.mark.asyncio
@@ -256,7 +256,7 @@ async def test_connect_failure_is_sanitized_stops_owned_profile_and_releases_loc
 
     with pytest.raises(AdsPowerProviderError) as caught:
         await provider.acquire(request)
-    provider._playwright_starter = lambda: FakeStarter(  # type: ignore[attr-defined]
+    provider._playwright_starter = lambda: FakeStarter(
         FakeRuntime(FakeChromium(FakeBrowser()))
     )
     session = await provider.acquire(request)
@@ -288,7 +288,12 @@ async def test_health_check_maps_disconnect_without_sensitive_diagnostics() -> N
     assert CDP_URL not in rendered
 
 
-def json_response(payload: object, *, status: int = 200, headers: dict[str, str] | None = None) -> httpx.Response:
+def json_response(
+    payload: object,
+    *,
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
     return httpx.Response(status, content=json.dumps(payload).encode(), headers=headers)
 
 
@@ -369,4 +374,3 @@ async def test_redirect_and_oversized_response_are_rejected_without_following() 
     with pytest.raises(AdsPowerProviderError) as size_error:
         await oversized.validate_config(config(max_response_bytes=1024))
     assert size_error.value.code == "PROVIDER_RESPONSE_TOO_LARGE"
-
