@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 from alembic import command
 from sqlalchemy import text
+
 from x_follow_list.application.binding import (
     BindingConflictError,
     BindingStateError,
     BrowserBindingService,
 )
-
 from x_follow_list.application.errors import ResourceNotFoundError
 from x_follow_list.config import RuntimeEnvironment, Settings
 from x_follow_list.persistence.database import Database

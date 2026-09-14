@@ -7,7 +7,7 @@ from alembic.config import Config
 from x_follow_list.config import Settings
 
 BASELINE_REVISION = "0001_a02_baseline"
-HEAD_REVISION = "0004_a06_scan_coordination"
+HEAD_REVISION = "0005_a09_browser_binding"
 
 
 def alembic_config(settings: Settings) -> Config:
