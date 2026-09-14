@@ -74,8 +74,9 @@ describe('A-12 AdsPower account binding journey', () => {
     const user = userEvent.setup()
 
     renderPage()
+    await screen.findByRole('option', { name: '本机 AdsPower · ADSPOWER' })
     await user.selectOptions(
-      await screen.findByRole('combobox', { name: '浏览器配置' }),
+      screen.getByRole('combobox', { name: '浏览器配置' }),
       'config-1',
     )
     await user.selectOptions(

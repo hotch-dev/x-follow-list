@@ -38,6 +38,28 @@ interface ItemList<T> {
   items: T[]
 }
 
+export interface ProviderConfigSummary {
+  id: string
+  provider_code: string
+  config_version: number
+  display_name: string
+  has_secret: boolean
+}
+
+export interface ProfileSummary {
+  profile_ref: string
+  display_name: string
+  is_running: boolean
+}
+
+export interface BindingSession {
+  id: string
+  provider_code: string
+  profile_ref: string
+  status: string
+  error_code: string | null
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -47,10 +69,11 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
+    ...init,
+    headers: { Accept: 'application/json', ...init.headers },
   })
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as {
@@ -62,6 +85,37 @@ async function request<T>(path: string): Promise<T> {
     )
   }
   return (await response.json()) as T
+}
+
+export async function listProviderConfigs() {
+  return (await request<ItemList<ProviderConfigSummary>>('/browser-provider-configs')).items
+}
+
+export async function listProfiles(configId: string) {
+  return (
+    await request<ItemList<ProfileSummary>>(
+      `/browser-provider-configs/${encodeURIComponent(configId)}/profiles`,
+    )
+  ).items
+}
+
+export async function createBinding(
+  providerConfigId: string,
+  profileRef: string,
+  csrfToken: string,
+) {
+  return request<BindingSession>('/x-account-bind-sessions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify({
+      provider_config_id: providerConfigId,
+      profile_ref: profileRef,
+      x_account_id: null,
+    }),
+  })
 }
 
 export async function loadDashboard() {
