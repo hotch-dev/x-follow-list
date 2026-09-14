@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Self
 
 from fastapi import APIRouter, Cookie, Header, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from x_follow_list.application.auth import (
     SESSION_COOKIE_NAME,
@@ -20,8 +20,21 @@ router = APIRouter(prefix="/api/v1/x-account-bind-sessions", tags=["x-account-bi
 class CreateBindingRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    provider_config_id: str = Field(min_length=1, max_length=255)
-    profile_ref: str = Field(min_length=1, max_length=255)
+    provider_config_id: str | None = Field(default=None, min_length=1, max_length=255)
+    profile_ref: str | None = Field(default=None, min_length=1, max_length=255)
+    x_account_id: str | None = Field(default=None, min_length=1, max_length=255)
+
+    @model_validator(mode="after")
+    def select_new_binding_or_revalidation(self) -> Self:
+        creates_new = self.provider_config_id is not None and self.profile_ref is not None
+        revalidates = self.x_account_id is not None
+        if creates_new == revalidates:
+            raise ValueError("select either provider/profile or an account to revalidate")
+        if not creates_new and not revalidates:
+            raise ValueError("binding target is required")
+        if revalidates and (self.provider_config_id is not None or self.profile_ref is not None):
+            raise ValueError("revalidation cannot replace the bound provider profile")
+        return self
 
 
 class DetectedIdentityResponse(BaseModel):
@@ -37,6 +50,7 @@ class BindingResponse(BaseModel):
     provider_code: str
     provider_config_version: int
     profile_ref: str
+    target_account_id: str | None
     status: str
     detected_identity: DetectedIdentityResponse | None
     account_id: str | None
@@ -82,6 +96,7 @@ def _response(binding: BindingSession) -> BindingResponse:
         provider_code=binding.provider_code,
         provider_config_version=binding.provider_config_version,
         profile_ref=binding.profile_ref,
+        target_account_id=binding.target_account_id,
         status=binding.status,
         detected_identity=identity,
         account_id=binding.confirmed_account_id,
@@ -101,9 +116,16 @@ async def create_binding(
         request, session_token, csrf_token, mutation=True
     )
     _database, _auth_service, binding_service = _services(request)
-    binding = await binding_service.create(
-        user.user_id, payload.provider_config_id, payload.profile_ref
-    )
+    if payload.x_account_id is not None:
+        binding = await binding_service.create_revalidation(
+            user.user_id, payload.x_account_id
+        )
+    else:
+        assert payload.provider_config_id is not None
+        assert payload.profile_ref is not None
+        binding = await binding_service.create(
+            user.user_id, payload.provider_config_id, payload.profile_ref
+        )
     return _response(binding)
 
 
