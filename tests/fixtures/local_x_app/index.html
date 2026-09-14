@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local X relationship fixture</title>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script>
+      const app = document.querySelector('#app')
+      const query = new URLSearchParams(window.location.search)
+      const scenario = query.get('scenario') || 'normal'
+      const side = window.location.pathname.slice(1).toUpperCase()
+      let pageNumber = 1
+
+      function profile() {
+        app.innerHTML = `
+          <h1>Fixture profile</h1>
+          <a href="/follower?scenario=${scenario}">Followers</a>
+          <a href="/following?scenario=${scenario}">Following</a>
+        `
+      }
+
+      async function loadPage() {
+        try {
+          const response = await fetch(
+            `/api/relationships?side=${side}&page=${pageNumber}&scenario=${scenario}`,
+          )
+          if (!response.ok) throw new Error('fixture request failed')
+          const payload = await response.json()
+          document.body.dataset.pageCount = String(pageNumber)
+          const total = payload.displayed_total ?? ''
+          app.innerHTML = `<section data-testid="relationship-view" data-total="${total}">
+            <h1>${side}</h1>
+            <ol>${(payload.items || []).map(item => `<li>${item.user?.id || 'invalid'}</li>`).join('')}</ol>
+          </section>`
+          if (payload.terminal) {
+            app.insertAdjacentHTML('beforeend', '<p data-testid="terminal">End</p>')
+          } else {
+            app.insertAdjacentHTML('beforeend', '<button data-testid="load-more">Load more</button>')
+            document.querySelector('[data-testid="load-more"]').addEventListener('click', () => {
+              pageNumber += 1
+              loadPage()
+            })
+          }
+        } catch (_error) {
+          app.innerHTML = '<p data-testid="load-error">Connection interrupted</p>'
+        }
+      }
+
+      if (window.location.pathname === '/profile') {
+        profile()
+      } else if (scenario === 'challenge') {
+        app.innerHTML = '<p data-testid="challenge">Verify your account</p>'
+      } else {
+        loadPage()
+      }
+    </script>
+  </body>
+</html>
