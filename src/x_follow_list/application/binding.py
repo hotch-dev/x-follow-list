@@ -325,6 +325,37 @@ class BrowserBindingService:
             await session.commit()
         return [str(value) for value in ids]
 
+    async def expire_claim(self, claim: BindingClaim) -> None:
+        await self._finish_claim(claim, "EXPIRED", "BIND_TIMEOUT")
+
+    async def fail_claim(self, claim: BindingClaim, error_code: str) -> None:
+        await self._finish_claim(claim, "FAILED", error_code)
+
+    async def _finish_claim(
+        self, claim: BindingClaim, status: str, error_code: str
+    ) -> None:
+        now = self._now().isoformat()
+        async with self._database.session() as session:
+            result = await session.execute(
+                text(
+                    "UPDATE browser_bind_sessions SET status=:status,error_code=:error,"
+                    "updated_at=:now WHERE id=:id AND status='RUNNING' "
+                    "AND worker_id=:worker AND claim_token=:token"
+                ),
+                {
+                    "status": status,
+                    "error": error_code,
+                    "now": now,
+                    "id": claim.session_id,
+                    "worker": claim.worker_id,
+                    "token": claim.claim_token,
+                },
+            )
+            if getattr(result, "rowcount", 0) != 1:
+                await session.rollback()
+                raise BindingStateError()
+            await session.commit()
+
     def _now(self) -> datetime:
         return self._clock().astimezone(UTC)
 
