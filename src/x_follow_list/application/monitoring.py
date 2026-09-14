@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import text
 
@@ -39,14 +41,20 @@ class MonitoringQueryService:
         return [dict(row) for row in rows]
 
     async def enqueue_scan(
-        self, user_id: str, account_id: str, idempotency_key: str
+        self,
+        user_id: str,
+        account_id: str,
+        idempotency_key: str,
+        request_id: str | None = None,
     ) -> dict[str, Any]:
+        await self._require_account_role(user_id, account_id, mutation=True)
         try:
             run_id = await self._coordinator.enqueue(
                 user_id,
                 account_id,
                 idempotency_key,
                 f"manual-scan:v1:{account_id}",
+                request_id,
             )
         except LookupError:
             raise ResourceNotFoundError from None
@@ -118,10 +126,18 @@ class MonitoringQueryService:
         state: str | None,
         search: str | None,
         limit: int,
-    ) -> list[dict[str, Any]]:
+        cursor: str | None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         await self._require_account(user_id, account_id)
         clauses = ["s.x_account_id=:account"]
-        parameters: dict[str, object] = {"account": account_id, "limit": limit}
+        parameters: dict[str, object] = {"account": account_id, "limit": limit + 1}
+        cursor_value = _decode_cursor(cursor)
+        if cursor_value is not None:
+            clauses.append(
+                "(s.updated_at < :cursor_time OR "
+                "(s.updated_at = :cursor_time AND s.subject_x_user_id < :cursor_id))"
+            )
+            parameters["cursor_time"], parameters["cursor_id"] = cursor_value
         if state is not None:
             clauses.append("s.state=:state")
             parameters["state"] = state
@@ -137,7 +153,8 @@ class MonitoringQueryService:
                 await session.execute(
                     text(
                         "SELECT s.subject_x_user_id AS x_user_id,m.username,m.display_name,"
-                        "s.state,s.non_followback_streak,s.last_snapshot_id AS snapshot_id "
+                        "s.state,s.non_followback_streak,s.last_snapshot_id AS snapshot_id,"
+                        "s.updated_at AS cursor_time "
                         "FROM relationship_states s JOIN snapshot_memberships m "
                         "ON m.snapshot_id=s.last_snapshot_id "
                         "AND m.subject_x_user_id=s.subject_x_user_id WHERE "
@@ -147,7 +164,14 @@ class MonitoringQueryService:
                     parameters,
                 )
             ).mappings().all()
-        return [dict(row) for row in rows]
+        items = [dict(row) for row in rows[:limit]]
+        next_cursor = None
+        if len(rows) > limit:
+            last = items[-1]
+            next_cursor = _encode_cursor(last["cursor_time"], str(last["x_user_id"]))
+        for item in items:
+            item.pop("cursor_time")
+        return items, next_cursor
 
     async def list_events(
         self,
@@ -158,10 +182,18 @@ class MonitoringQueryService:
         category: str | None,
         event_type: str | None,
         limit: int,
-    ) -> list[dict[str, Any]]:
+        cursor: str | None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         await self._require_account(user_id, account_id)
         clauses = ["e.x_account_id=:account"]
-        parameters: dict[str, object] = {"account": account_id, "limit": limit}
+        parameters: dict[str, object] = {"account": account_id, "limit": limit + 1}
+        cursor_value = _decode_cursor(cursor)
+        if cursor_value is not None:
+            clauses.append(
+                "(e.created_at < :cursor_time OR "
+                "(e.created_at = :cursor_time AND e.id < :cursor_id))"
+            )
+            parameters["cursor_time"], parameters["cursor_id"] = cursor_value
         for column, value in (
             ("status", status),
             ("category", category),
@@ -190,15 +222,20 @@ class MonitoringQueryService:
                     parameters,
                 )
             ).mappings().all()
-        items = [dict(row) for row in rows]
+        items = [dict(row) for row in rows[:limit]]
+        next_cursor = None
+        if len(rows) > limit:
+            last = items[-1]
+            next_cursor = _encode_cursor(last["created_at"], str(last["id"]))
         for item in items:
             if item["status"] == "OPEN":
                 item["status"] = "NEW"
-        return items
+        return items, next_cursor
 
     async def acknowledge_event(
         self, user_id: str, event_id: str, expected_version: int
     ) -> dict[str, Any]:
+        await self._require_event_role(user_id, event_id, mutation=True)
         now = datetime.now(UTC).isoformat()
         async with self._database.engine.connect() as connection:
             await connection.exec_driver_sql("BEGIN IMMEDIATE")
@@ -240,17 +277,109 @@ class MonitoringQueryService:
             ).mappings().one()
         return dict(row)
 
+    async def unbind_account(
+        self,
+        user_id: str,
+        account_id: str,
+        expected_version: int,
+        request_id: str | None,
+    ) -> None:
+        role = await self._require_account_role(user_id, account_id, mutation=True)
+        if role != "OWNER":
+            raise ApplicationError("PERMISSION_DENIED", "Permission denied", 403)
+        now = datetime.now(UTC).isoformat()
+        replacement = f"unbound:{uuid4()}"
+        replacement_hash = hashlib.sha256(replacement.encode()).hexdigest()
+        async with self._database.engine.connect() as connection:
+            await connection.exec_driver_sql("BEGIN IMMEDIATE")
+            try:
+                result = await connection.execute(
+                    text(
+                        "UPDATE x_accounts SET status='DISABLED',profile_ref=:profile,"
+                        "profile_ref_hash=:profile_hash,version=version+1,updated_at=:now "
+                        "WHERE id=:account AND owner_user_id=:user AND version=:version"
+                    ),
+                    {
+                        "profile": replacement,
+                        "profile_hash": replacement_hash,
+                        "now": now,
+                        "account": account_id,
+                        "user": user_id,
+                        "version": expected_version,
+                    },
+                )
+                if result.rowcount != 1:
+                    raise ApplicationError(
+                        "RESOURCE_VERSION_CONFLICT", "Resource version has changed", 409
+                    )
+                await connection.execute(
+                    text(
+                        "DELETE FROM scan_runs WHERE x_account_id=:account "
+                        "AND status IN ('QUEUED','RUNNING')"
+                    ),
+                    {"account": account_id},
+                )
+                await connection.execute(
+                    text(
+                        "INSERT INTO audit_logs "
+                        "(id,actor_user_id,action,resource_type,resource_id,request_id,"
+                        "after_json,created_at) VALUES "
+                        "(:id,:user,'X_ACCOUNT_UNBOUND','x_account',:account,:request,"
+                        ":after,:now)"
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "user": user_id,
+                        "account": account_id,
+                        "request": request_id,
+                        "after": json.dumps({"status": "DISABLED"}),
+                        "now": now,
+                    },
+                )
+                await connection.commit()
+            except BaseException:
+                await connection.rollback()
+                raise
+
     async def _require_account(self, user_id: str, account_id: str) -> None:
+        await self._require_account_role(user_id, account_id)
+
+    async def _require_account_role(
+        self, user_id: str, account_id: str, *, mutation: bool = False
+    ) -> str:
         async with self._database.session() as session:
-            found = await session.scalar(
+            role = await session.scalar(
                 text(
-                    "SELECT 1 FROM x_account_memberships "
+                    "SELECT role FROM x_account_memberships "
                     "WHERE user_id=:user AND x_account_id=:account"
                 ),
                 {"user": user_id, "account": account_id},
             )
-        if found is None:
+        if role is None:
             raise ResourceNotFoundError
+        role_value = str(role)
+        if mutation and role_value not in {"OWNER", "OPERATOR"}:
+            raise ApplicationError("PERMISSION_DENIED", "Permission denied", 403)
+        return role_value
+
+    async def _require_event_role(
+        self, user_id: str, event_id: str, *, mutation: bool = False
+    ) -> str:
+        async with self._database.session() as session:
+            role = await session.scalar(
+                text(
+                    "SELECT m.role FROM relationship_events e "
+                    "JOIN x_account_memberships m ON m.x_account_id=e.x_account_id "
+                    "WHERE m.user_id=:user AND e.id=:event"
+                ),
+                {"user": user_id, "event": event_id},
+            )
+        if role is None:
+            raise ResourceNotFoundError
+        role_value = str(role)
+        if mutation and role_value not in {"OWNER", "OPERATOR"}:
+            raise ApplicationError("PERMISSION_DENIED", "Permission denied", 403)
+        return role_value
 
 
 def _escape_like(value: str) -> str:

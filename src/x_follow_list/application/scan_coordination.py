@@ -55,6 +55,7 @@ class ScanCoordinator:
         x_account_id: str,
         idempotency_key: str,
         request_hash: str,
+        request_id: str | None = None,
     ) -> str:
         now = datetime.now(UTC)
         scope = f"scan-run:{x_account_id}"
@@ -123,6 +124,22 @@ class ScanCoordinator:
                         "response": json.dumps({"scan_run_id": run_id}),
                         "now": now_value,
                         "expires": (now + timedelta(hours=24)).isoformat(),
+                    },
+                )
+                await connection.execute(
+                    text(
+                        "INSERT INTO audit_logs "
+                        "(id,actor_user_id,action,resource_type,resource_id,request_id,"
+                        "after_json,created_at) VALUES "
+                        "(:id,:user,'SCAN_RUN_CREATED','scan_run',:run,:request,:after,:now)"
+                    ),
+                    {
+                        "id": str(uuid4()),
+                        "user": user_id,
+                        "run": run_id,
+                        "request": request_id,
+                        "after": json.dumps({"status": "QUEUED", "x_account_id": x_account_id}),
+                        "now": now_value,
                     },
                 )
                 await connection.commit()

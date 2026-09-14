@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Cookie, Header, Query, Request
+from fastapi import APIRouter, Cookie, Header, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from x_follow_list.application.auth import SESSION_COOKIE_NAME, AuthenticatedUser, AuthService
+from x_follow_list.application.errors import ApplicationError
 from x_follow_list.application.monitoring import MonitoringQueryService
 from x_follow_list.persistence.database import Database
 
@@ -92,6 +93,13 @@ class AcknowledgeRequest(BaseModel):
     version: int = Field(ge=1)
 
 
+class UnbindRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: int = Field(ge=1)
+    delete_history: bool = False
+
+
 def _services(request: Request) -> tuple[Database, AuthService, MonitoringQueryService]:
     return (
         request.app.state.database,
@@ -163,15 +171,19 @@ async def list_accounts(
 async def create_scan(
     account_id: str,
     request: Request,
-    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
-    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
     idempotency_key: Annotated[
         str, Header(alias="Idempotency-Key", min_length=1, max_length=255)
-    ] = "",
+    ],
+    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> ScanResponse:
     user = await _authenticate(request, session_token, csrf_token, mutation=True)
     _database, _auth, service = _services(request)
-    return _scan(await service.enqueue_scan(user.user_id, account_id, idempotency_key))
+    return _scan(
+        await service.enqueue_scan(
+            user.user_id, account_id, idempotency_key, request.state.request_id
+        )
+    )
 
 
 @router.get("/scan-runs", response_model=ScanListResponse)
@@ -210,14 +222,22 @@ async def list_relationships(
     ] = None,
     search: Annotated[str | None, Query(min_length=1, max_length=255)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=512)] = None,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> RelationshipListResponse:
     user = await _authenticate(request, session_token)
     _database, _auth, service = _services(request)
-    rows = await service.list_relationships(
-        user.user_id, x_account_id, state=state, search=search, limit=limit
+    rows, next_cursor = await service.list_relationships(
+        user.user_id,
+        x_account_id,
+        state=state,
+        search=search,
+        limit=limit,
+        cursor=cursor,
     )
-    return RelationshipListResponse(items=[RelationshipResponse(**row) for row in rows])
+    return RelationshipListResponse(
+        items=[RelationshipResponse(**row) for row in rows], next_cursor=next_cursor
+    )
 
 
 @router.get("/relationship-events", response_model=EventListResponse)
@@ -228,19 +248,23 @@ async def list_events(
     category: Annotated[str | None, Query(min_length=1, max_length=32)] = None,
     event_type: Annotated[str | None, Query(min_length=1, max_length=64)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=512)] = None,
     session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> EventListResponse:
     user = await _authenticate(request, session_token)
     _database, _auth, service = _services(request)
-    rows = await service.list_events(
+    rows, next_cursor = await service.list_events(
         user.user_id,
         x_account_id,
         status=status,
         category=category,
         event_type=event_type,
         limit=limit,
+        cursor=cursor,
     )
-    return EventListResponse(items=[EventResponse(**row) for row in rows])
+    return EventListResponse(
+        items=[EventResponse(**row) for row in rows], next_cursor=next_cursor
+    )
 
 
 @router.post("/relationship-events/{event_id}/acknowledge", response_model=EventResponse)
@@ -254,3 +278,23 @@ async def acknowledge_event(
     user = await _authenticate(request, session_token, csrf_token, mutation=True)
     _database, _auth, service = _services(request)
     return EventResponse(**await service.acknowledge_event(user.user_id, event_id, payload.version))
+
+
+@router.delete("/x-accounts/{account_id}", status_code=204)
+async def unbind_account(
+    account_id: str,
+    payload: UnbindRequest,
+    request: Request,
+    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> Response:
+    user = await _authenticate(request, session_token, csrf_token, mutation=True)
+    if payload.delete_history:
+        raise ApplicationError(
+            "HISTORY_DELETE_DEFERRED", "History deletion is not available in this phase", 409
+        )
+    _database, _auth, service = _services(request)
+    await service.unbind_account(
+        user.user_id, account_id, payload.version, request.state.request_id
+    )
+    return Response(status_code=204)
