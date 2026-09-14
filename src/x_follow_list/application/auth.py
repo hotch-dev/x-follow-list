@@ -202,10 +202,7 @@ class AuthService:
         csrf_token: str | None,
         request_id: str,
     ) -> None:
-        if not csrf_token or not hmac.compare_digest(
-            _token_hash(csrf_token), user.csrf_token_hash
-        ):
-            raise ApplicationError("CSRF_REJECTED", "CSRF validation failed", 403)
+        self.verify_csrf(user, csrf_token)
         now = _utc_now()
         await session.execute(
             text("UPDATE auth_sessions SET revoked_at=:now WHERE id=:session_id"),
@@ -220,6 +217,13 @@ class AuthService:
             request_id=request_id,
         )
         await session.commit()
+
+    @staticmethod
+    def verify_csrf(user: AuthenticatedUser, csrf_token: str | None) -> None:
+        if not csrf_token or not hmac.compare_digest(
+            _token_hash(csrf_token), user.csrf_token_hash
+        ):
+            raise ApplicationError("CSRF_REJECTED", "CSRF validation failed", 403)
 
     @staticmethod
     async def _audit(

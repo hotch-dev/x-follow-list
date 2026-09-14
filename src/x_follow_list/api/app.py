@@ -9,7 +9,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from x_follow_list.api.auth import router as auth_router
+from x_follow_list.api.binding import router as binding_router
 from x_follow_list.application.auth import AuthService
+from x_follow_list.application.binding import BrowserBindingService
 from x_follow_list.application.errors import ApplicationError
 from x_follow_list.config import Settings
 from x_follow_list.observability.logging import configure_logging, log_context
@@ -32,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = runtime_settings
     app.state.database = database
     app.state.auth_service = auth_service
+    app.state.browser_binding_service = BrowserBindingService(database)
 
     @app.middleware("http")
     async def correlate_request(
@@ -115,6 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     app.include_router(auth_router)
+    app.include_router(binding_router)
 
     return app
 
