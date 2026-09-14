@@ -24,6 +24,7 @@ EXPECTED_TABLES = {
     "snapshot_memberships",
     "relationship_states",
     "relationship_events",
+    "browser_bind_sessions",
 }
 
 
