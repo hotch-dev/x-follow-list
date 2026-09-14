@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -336,3 +337,168 @@ async def test_scan_cursor_is_stable_and_domain_open_status_is_exposed_as_new(
     assert new_events.json()["items"][0]["status"] == "NEW"
     assert malformed.status_code == 422
     assert malformed.json()["code"] == "REQUEST_VALIDATION_FAILED"
+
+
+async def add_viewer_session(app: FastAPI) -> tuple[str, str]:
+    now = datetime.now(UTC)
+    raw_token = "viewer-session-token"
+    csrf = "viewer-csrf-token"
+    async with app.state.database.session() as session:
+        await session.execute(
+            text(
+                "INSERT INTO users (id,email,password_hash,role,created_at,updated_at) "
+                "VALUES ('viewer','viewer@example.test','unused','VIEWER',:now,:now)"
+            ),
+            {"now": now.isoformat()},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO auth_sessions "
+                "(id,user_id,token_hash,csrf_token_hash,created_at,expires_at,last_seen_at) "
+                "VALUES ('viewer-session','viewer',:token,:csrf,:now,:expires,:now)"
+            ),
+            {
+                "token": hashlib.sha256(raw_token.encode()).hexdigest(),
+                "csrf": hashlib.sha256(csrf.encode()).hexdigest(),
+                "now": now.isoformat(),
+                "expires": (now + timedelta(hours=1)).isoformat(),
+            },
+        )
+        await session.execute(
+            text(
+                "INSERT INTO x_account_memberships "
+                "(x_account_id,user_id,role,created_at,updated_at) "
+                "VALUES ('account','viewer','VIEWER',:now,:now)"
+            ),
+            {"now": now.isoformat()},
+        )
+        await session.commit()
+    return raw_token, csrf
+
+
+@pytest.mark.asyncio
+async def test_mutations_require_idempotency_permission_version_and_write_audit(
+    tmp_path: Path,
+) -> None:
+    app = await prepared_app(tmp_path)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url=ORIGIN) as client:
+        _owner, csrf = await login_and_seed(client, app)
+        await seed_relationships(app)
+
+        missing_key = await client.post(
+            "/api/v1/x-accounts/account/scan-runs",
+            headers=mutation_headers(csrf),
+        )
+        viewer_token, viewer_csrf = await add_viewer_session(app)
+        client.cookies.set("x_follow_list_session", viewer_token)
+        viewer_scan = await client.post(
+            "/api/v1/x-accounts/account/scan-runs",
+            headers=mutation_headers(viewer_csrf, key="viewer-key"),
+        )
+        viewer_ack = await client.post(
+            "/api/v1/relationship-events/event/acknowledge",
+            headers=mutation_headers(viewer_csrf),
+            json={"version": 1},
+        )
+        client.cookies.clear()
+        login = await client.post(
+            "/api/v1/auth/session",
+            headers={"Origin": ORIGIN},
+            json={
+                "login": "owner@example.test",
+                "password": "a sufficiently long password",
+            },
+        )
+        owner_csrf = str(login.json()["csrf_token"])
+        created = await client.post(
+            "/api/v1/x-accounts/account/scan-runs",
+            headers=mutation_headers(owner_csrf, key="audited-key"),
+        )
+        unbound = await client.request(
+            "DELETE",
+            "/api/v1/x-accounts/account",
+            headers=mutation_headers(owner_csrf),
+            json={"version": 1, "delete_history": False},
+        )
+        async with app.state.database.session() as session:
+            account = (
+                await session.execute(
+                    text("SELECT status,profile_ref,version FROM x_accounts WHERE id='account'")
+                )
+            ).one()
+            history_count = await session.scalar(
+                text("SELECT count(*) FROM relationship_snapshots WHERE x_account_id='account'")
+            )
+            actions = set(
+                await session.scalars(
+                    text(
+                        "SELECT action FROM audit_logs "
+                        "WHERE action IN ('SCAN_RUN_CREATED','X_ACCOUNT_UNBOUND')"
+                    )
+                )
+            )
+
+    await app.state.database.dispose()
+    assert missing_key.status_code == 422
+    assert viewer_scan.status_code == viewer_ack.status_code == 403
+    assert created.status_code == 202
+    assert unbound.status_code == 204
+    assert account[0] == "DISABLED"
+    assert str(account[1]).startswith("unbound:")
+    assert account[2] == 2
+    assert history_count == 1
+    assert actions == {"SCAN_RUN_CREATED", "X_ACCOUNT_UNBOUND"}
+
+
+@pytest.mark.asyncio
+async def test_relationship_and_event_keyset_cursors_do_not_repeat_rows(
+    tmp_path: Path,
+) -> None:
+    app = await prepared_app(tmp_path)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url=ORIGIN) as client:
+        _owner, _csrf = await login_and_seed(client, app)
+        await seed_relationships(app)
+        async with app.state.database.session() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO relationship_events "
+                    "(id,x_account_id,scan_run_id,subject_x_user_id,category,event_type,"
+                    "dedupe_key,status,created_at) "
+                    "SELECT 'event-2',x_account_id,scan_run_id,'101','RELATIONSHIP_CHANGE',"
+                    "'NEW_FOLLOWER','dedupe-2','INFORMATIONAL',created_at "
+                    "FROM relationship_events WHERE id='event'"
+                )
+            )
+            await session.commit()
+
+        relationship_first = await client.get(
+            "/api/v1/relationships?x_account_id=account&limit=1"
+        )
+        relationship_cursor = relationship_first.json()["next_cursor"]
+        relationship_second = await client.get(
+            "/api/v1/relationships",
+            params={
+                "x_account_id": "account",
+                "limit": 1,
+                "cursor": relationship_cursor,
+            },
+        )
+        event_first = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&limit=1"
+        )
+        event_cursor = event_first.json()["next_cursor"]
+        event_second = await client.get(
+            "/api/v1/relationship-events",
+            params={"x_account_id": "account", "limit": 1, "cursor": event_cursor},
+        )
+
+    await app.state.database.dispose()
+    first_relationship_id = relationship_first.json()["items"][0]["x_user_id"]
+    second_relationship_id = relationship_second.json()["items"][0]["x_user_id"]
+    assert relationship_cursor
+    assert first_relationship_id != second_relationship_id
+    assert event_cursor
+    assert event_second.status_code == 200
+    assert event_second.json()["items"][0]["id"] != event_first.json()["items"][0]["id"]
