@@ -1,0 +1,2 @@
+"""Structured application observability primitives."""
+
