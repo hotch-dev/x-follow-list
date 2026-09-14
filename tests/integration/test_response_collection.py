@@ -12,8 +12,8 @@ from x_follow_list.collector.response import ResponseCollector
 
 
 class FakeResponse:
-    def __init__(self, payload: object) -> None:
-        self.url = "http://fixture.test/api/relationships"
+    def __init__(self, payload: object, url: str) -> None:
+        self.url = url
         self._payload = payload
 
     async def json(self) -> object:
@@ -32,9 +32,13 @@ class FakePage:
         assert event == "response" and listener is self.listener
         self.listener = None
 
-    def emit(self, payload: object) -> None:
+    def emit(
+        self,
+        payload: object,
+        url: str = "http://fixture.test/api/relationships",
+    ) -> None:
         assert self.listener is not None, "collector must listen before navigation"
-        self.listener(FakeResponse(payload))
+        self.listener(FakeResponse(payload, url))
 
 
 def payload(*ids: str, terminal: bool) -> dict[str, Any]:
@@ -78,3 +82,25 @@ async def test_collector_removes_listener_and_propagates_navigation_failure() ->
         await collector.collect(page, challenge, RelationshipSide.FOLLOWER)
 
     assert page.listener is None
+
+
+@pytest.mark.asyncio
+async def test_collector_classifies_by_payload_structure_instead_of_endpoint_hash() -> None:
+    page = FakePage()
+
+    async def navigate(actual_page: FakePage, _side: RelationshipSide) -> int | None:
+        actual_page.emit(
+            {"kind": "unrelated", "schema_version": "1"},
+            "http://fixture.test/api/background-data",
+        )
+        actual_page.emit(
+            payload("9", terminal=True),
+            "http://fixture.test/i/api/graphql/changing-query-hash",
+        )
+        return 1
+
+    result = await ResponseCollector(VersionedRelationshipParser()).collect(
+        page, navigate, RelationshipSide.FOLLOWER
+    )
+
+    assert [member.x_user_id for member in result.items] == ["9"]
