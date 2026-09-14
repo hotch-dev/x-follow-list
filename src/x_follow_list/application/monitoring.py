@@ -3,8 +3,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -18,6 +19,8 @@ from x_follow_list.application.scan_coordination import (
 from x_follow_list.browser.contracts import ManagedProfileDeletionProvider, ProviderConfig
 from x_follow_list.browser.registry import BrowserProviderRegistry, ProviderNotFoundError
 from x_follow_list.persistence.database import Database
+
+_MUTATION_ROLES = frozenset({"OWNER", "OPERATOR"})
 
 
 class MonitoringQueryService:
@@ -306,7 +309,13 @@ class MonitoringQueryService:
                     raise ApplicationError(
                         "RESOURCE_VERSION_CONFLICT", "Resource version has changed", 409
                     )
-                await self._delete_managed_profile(account)
+                await self._delete_managed_profile(
+                    provider_code=str(account["provider_code"]),
+                    config_version=int(account["config_version"]),
+                    raw_config=account["config_json"],
+                    secret_ref=account["secret_ref"],
+                    profile_ref=str(account["profile_ref"]),
+                )
                 result = await connection.execute(
                     text(
                         "UPDATE x_accounts SET status='DISABLED',profile_ref=:profile,"
@@ -355,22 +364,31 @@ class MonitoringQueryService:
                 await connection.rollback()
                 raise
 
-    async def _delete_managed_profile(self, account: Any) -> None:
+    async def _delete_managed_profile(
+        self,
+        *,
+        provider_code: str,
+        config_version: int,
+        raw_config: object,
+        secret_ref: str | None,
+        profile_ref: str,
+    ) -> None:
         if self._provider_registry is None:
             return
-        raw_config = account["config_json"]
         if isinstance(raw_config, str):
             raw_config = json.loads(raw_config)
         try:
-            provider = self._provider_registry.get(str(account["provider_code"]))
+            if not isinstance(raw_config, Mapping):
+                raise ValueError("provider config must be an object")
+            provider = self._provider_registry.get(provider_code)
             config = ProviderConfig(
-                str(account["provider_code"]),
-                int(account["config_version"]),
-                raw_config,
-                secret_ref=account["secret_ref"],
+                provider_code,
+                config_version,
+                cast(Mapping[str, object], raw_config),
+                secret_ref=secret_ref,
             )
             if isinstance(provider, ManagedProfileDeletionProvider):
-                await provider.delete_profile(config, str(account["profile_ref"]))
+                await provider.delete_profile(config, profile_ref)
         except (ProviderNotFoundError, TypeError, ValueError, RuntimeError):
             raise ApplicationError(
                 "PROFILE_DELETE_FAILED", "Managed browser profile could not be deleted", 409
@@ -393,8 +411,8 @@ class MonitoringQueryService:
         if role is None:
             raise ResourceNotFoundError
         role_value = str(role)
-        if mutation and role_value not in {"OWNER", "OPERATOR"}:
-            raise ApplicationError("PERMISSION_DENIED", "Permission denied", 403)
+        if mutation and role_value not in _MUTATION_ROLES:
+            raise _permission_denied()
         return role_value
 
     async def _require_event_role(
@@ -412,13 +430,17 @@ class MonitoringQueryService:
         if role is None:
             raise ResourceNotFoundError
         role_value = str(role)
-        if mutation and role_value not in {"OWNER", "OPERATOR"}:
-            raise ApplicationError("PERMISSION_DENIED", "Permission denied", 403)
+        if mutation and role_value not in _MUTATION_ROLES:
+            raise _permission_denied()
         return role_value
 
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _permission_denied() -> ApplicationError:
+    return ApplicationError("PERMISSION_DENIED", "Permission denied", 403)
 
 
 def _page(
