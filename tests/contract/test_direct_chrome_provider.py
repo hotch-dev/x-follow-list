@@ -4,15 +4,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from x_follow_list.browser.direct_chrome import (
-    DirectChromeProvider,
-    DirectChromeProviderError,
-)
 
 from x_follow_list.browser.contracts import (
     BrowserProvider,
     BrowserSessionRequest,
     ProviderConfig,
+)
+from x_follow_list.browser.direct_chrome import (
+    DirectChromeProvider,
+    DirectChromeProviderError,
 )
 
 

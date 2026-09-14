@@ -140,6 +140,7 @@ class BrowserSessionRequest:
     config: ProviderConfig
     profile_ref: str
     owner_task_id: str
+    headless: bool = False
 
     def __post_init__(self) -> None:
         if not self.profile_ref or not self.owner_task_id:
