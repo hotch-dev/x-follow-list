@@ -1,0 +1,26 @@
+{
+  "kind": "relationship_list",
+  "schema_version": "1",
+  "relationship": "FOLLOWER",
+  "items": [
+    {
+      "user": {
+        "id": "101",
+        "username": "alice",
+        "display_name": "Alice",
+        "avatar_url": "https://images.example/alice.jpg"
+      }
+    },
+    {
+      "user": {
+        "id": "102",
+        "username": "bob",
+        "display_name": "Bob",
+        "avatar_url": null
+      }
+    }
+  ],
+  "next_cursor": "followers-2",
+  "terminal": false,
+  "empty_confirmed": false
+}

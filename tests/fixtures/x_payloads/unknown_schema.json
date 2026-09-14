@@ -1,0 +1,9 @@
+{
+  "kind": "relationship_list",
+  "schema_version": "future-version",
+  "relationship": "FOLLOWER",
+  "items": [],
+  "next_cursor": null,
+  "terminal": true,
+  "empty_confirmed": true
+}
