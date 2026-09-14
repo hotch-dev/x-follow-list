@@ -1,6 +1,6 @@
 # X 关注关系监控——阶段 A 开发计划
 
-> 状态：实施中 0.8（A-01 至 A-07 已完成）
+> 状态：实施中 0.9（A-01 至 A-08 已完成）
 > 日期：2026-09-14  
 > 输入：需求基线 1.3 + [阶段 A 技术设计](./phase-a-technical-design.md) 0.1  
 > 目标：可按任务顺序直接实施、测试和验收
@@ -132,7 +132,7 @@ flowchart LR
 **测试**：所有 Provider 共用的 contract suite，包括敏感值不进入异常/日志。  
 **映射**：AC-12、AC-17
 
-### A-08 模拟 X 页、导航器、响应收集器和解析器
+### A-08 模拟 X 页、导航器、响应收集器和解析器（已完成）
 
 **依赖**：A-05、A-07  
 **产物**：可重复的本地页、版本化夹具、采集器和完整性守卫
@@ -279,4 +279,4 @@ flowchart LR
 
 ## 7. 立即执行的下一项
 
-A-01 至 A-07 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)。下一项是 **A-08 模拟 X 页、导航器、响应收集器和解析器**。
+A-01 至 A-08 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)。下一项是 **A-09 Direct Chrome Provider 与交互式绑定**。
