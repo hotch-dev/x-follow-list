@@ -15,13 +15,18 @@ from x_follow_list.application.scan_coordination import (
     ScanAlreadyActiveError,
     ScanCoordinator,
 )
+from x_follow_list.browser.contracts import ManagedProfileDeletionProvider, ProviderConfig
+from x_follow_list.browser.registry import BrowserProviderRegistry, ProviderNotFoundError
 from x_follow_list.persistence.database import Database
 
 
 class MonitoringQueryService:
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self, database: Database, provider_registry: BrowserProviderRegistry | None = None
+    ) -> None:
         self._database = database
         self._coordinator = ScanCoordinator(database)
+        self._provider_registry = provider_registry
 
     async def list_accounts(self, user_id: str) -> list[dict[str, Any]]:
         async with self._database.session() as session:
@@ -284,6 +289,24 @@ class MonitoringQueryService:
         async with self._database.engine.connect() as connection:
             await connection.exec_driver_sql("BEGIN IMMEDIATE")
             try:
+                account = (
+                    await connection.execute(
+                        text(
+                            "SELECT a.version,a.profile_ref,p.provider_code,p.config_version,"
+                            "p.config_json,p.secret_ref FROM x_accounts a "
+                            "JOIN browser_provider_configs p ON p.id=a.provider_config_id "
+                            "WHERE a.id=:account AND a.owner_user_id=:user"
+                        ),
+                        {"account": account_id, "user": user_id},
+                    )
+                ).mappings().one_or_none()
+                if account is None:
+                    raise ResourceNotFoundError
+                if int(account["version"]) != expected_version:
+                    raise ApplicationError(
+                        "RESOURCE_VERSION_CONFLICT", "Resource version has changed", 409
+                    )
+                await self._delete_managed_profile(account)
                 result = await connection.execute(
                     text(
                         "UPDATE x_accounts SET status='DISABLED',profile_ref=:profile,"
@@ -331,6 +354,27 @@ class MonitoringQueryService:
             except BaseException:
                 await connection.rollback()
                 raise
+
+    async def _delete_managed_profile(self, account: Any) -> None:
+        if self._provider_registry is None:
+            return
+        raw_config = account["config_json"]
+        if isinstance(raw_config, str):
+            raw_config = json.loads(raw_config)
+        try:
+            provider = self._provider_registry.get(str(account["provider_code"]))
+            config = ProviderConfig(
+                str(account["provider_code"]),
+                int(account["config_version"]),
+                raw_config,
+                secret_ref=account["secret_ref"],
+            )
+            if isinstance(provider, ManagedProfileDeletionProvider):
+                await provider.delete_profile(config, str(account["profile_ref"]))
+        except (ProviderNotFoundError, TypeError, ValueError, RuntimeError):
+            raise ApplicationError(
+                "PROFILE_DELETE_FAILED", "Managed browser profile could not be deleted", 409
+            ) from None
 
     async def _require_account(self, user_id: str, account_id: str) -> None:
         await self._require_account_role(user_id, account_id)

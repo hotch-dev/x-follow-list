@@ -47,13 +47,13 @@ def create_app(
     app.state.database = database
     app.state.auth_service = auth_service
     app.state.browser_binding_service = BrowserBindingService(database)
-    app.state.monitoring_query_service = MonitoringQueryService(database)
     providers: tuple[BrowserProvider, ...] = (
         DirectChromeProvider(),
         AdsPowerProvider(),
     )
     registry = browser_provider_registry or BrowserProviderRegistry(providers)
     app.state.browser_provider_registry = registry
+    app.state.monitoring_query_service = MonitoringQueryService(database, registry)
     app.state.provider_config_service = ProviderConfigService(database, registry)
 
     @app.middleware("http")
