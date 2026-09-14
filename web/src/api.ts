@@ -1,0 +1,88 @@
+export interface Account {
+  id: string
+  x_user_id: string
+  username: string | null
+  display_name: string | null
+  session_status: string
+  provider_code: string
+  profile_ref: string
+  last_successful_scan_at: string | null
+}
+
+export interface ScanError {
+  code: string
+  summary: string
+}
+
+export interface ScanRun {
+  id: string
+  x_account_id: string
+  status: string
+  progress_stage: string | null
+  error: ScanError | null
+  follower_count: number | null
+  following_count: number | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+  last_successful_scan_at: string | null
+}
+
+export interface RelationshipEvent {
+  id: string
+  event_type: string
+  status: string
+}
+
+interface ItemList<T> {
+  items: T[]
+}
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+  ) {
+    super(code)
+  }
+}
+
+async function request<T>(path: string): Promise<T> {
+  const response = await fetch(`/api/v1${path}`, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  })
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      code?: unknown
+    }
+    throw new ApiError(
+      response.status,
+      typeof payload.code === 'string' ? payload.code : 'REQUEST_FAILED',
+    )
+  }
+  return (await response.json()) as T
+}
+
+export async function loadDashboard() {
+  const accounts = await request<ItemList<Account>>('/x-accounts')
+  const account = accounts.items[0]
+  if (!account) {
+    return { accounts: [], scans: [], actionItems: [] }
+  }
+  const query = new URLSearchParams({
+    x_account_id: account.id,
+    event_type: 'UNFOLLOWED_ME_AFTER_MUTUAL',
+    status: 'NEW',
+    limit: '50',
+  })
+  const [scans, events] = await Promise.all([
+    request<ItemList<ScanRun>>('/scan-runs?limit=5'),
+    request<ItemList<RelationshipEvent>>(`/relationship-events?${query}`),
+  ])
+  return {
+    accounts: accounts.items,
+    scans: scans.items,
+    actionItems: events.items,
+  }
+}

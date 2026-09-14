@@ -19,19 +19,107 @@ body {
 }
 
 .app-shell {
-  display: grid;
   min-height: 100vh;
-  place-items: center;
-  padding: 2rem;
+  padding: clamp(1.25rem, 4vw, 3.5rem);
 }
 
 .status-card {
+  margin: 10vh auto;
   width: min(100%, 42rem);
   padding: clamp(2rem, 6vw, 4rem);
   border: 1px solid #dce4ef;
   border-radius: 1.5rem;
   background: #ffffff;
   box-shadow: 0 1.25rem 4rem rgb(42 57 78 / 10%);
+}
+
+.dashboard {
+  width: min(100%, 72rem);
+  margin: 0 auto;
+}
+
+.page-header {
+  padding: 2rem 0 2.5rem;
+}
+
+.page-header h1,
+.card h2 {
+  margin: 0;
+}
+
+.page-header > p:last-child,
+.card p {
+  color: #536175;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  padding: 1.5rem;
+  border: 1px solid #dce4ef;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 0.75rem 2.5rem rgb(42 57 78 / 7%);
+}
+
+.card-label {
+  margin: 0 0 0.75rem;
+  color: #68778e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-line,
+.metric-time,
+.data-note {
+  margin-bottom: 0;
+}
+
+.metric-time,
+.action-card strong {
+  color: #172033;
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+
+.data-note {
+  font-size: 0.875rem;
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: #2459a9;
+  text-decoration: none;
+}
+
+.action-card:hover,
+.action-card:focus-visible {
+  border-color: #2459a9;
+  outline: 3px solid rgb(36 89 169 / 18%);
+}
+
+.failure-card {
+  margin-top: 1rem;
+  border-left: 0.3rem solid #bd4b3d;
+}
+
+button {
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: #2459a9;
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .eyebrow {
@@ -55,4 +143,3 @@ h1 {
   font-size: 1.05rem;
   line-height: 1.7;
 }
-
