@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
 from sqlalchemy import text
 
@@ -13,6 +11,7 @@ from x_follow_list.browser.contracts import BrowserSessionRequest, ProviderConfi
 from x_follow_list.browser.registry import BrowserProviderRegistry
 from x_follow_list.persistence.database import Database
 from x_follow_list.worker.browser_session import BrowserSessionJob, BrowserWork
+from x_follow_list.worker.provider_execution import provider_config_from_row
 
 _X_USERNAME = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 ScanWorkFactory = Callable[[str], BrowserWork]
@@ -86,23 +85,10 @@ class ConfiguredScanJob:
             ).mappings().one_or_none()
         if row is None or row["username"] is None:
             raise ScanConfigurationError("ready account configuration was not found")
-        raw_config: Any = row["config_json"]
-        if isinstance(raw_config, str):
-            try:
-                raw_config = json.loads(raw_config)
-            except json.JSONDecodeError:
-                raise ScanConfigurationError("provider configuration is invalid") from None
-        if not isinstance(raw_config, dict):
-            raise ScanConfigurationError("provider configuration is invalid")
         try:
-            provider = ProviderConfig(
-                str(row["provider_code"]),
-                int(row["config_version"]),
-                raw_config,
-                secret_ref=row["secret_ref"],
-            )
+            provider = provider_config_from_row(row)
             self._registry.get(provider.provider_code)
-        except (TypeError, ValueError, LookupError):
+        except (KeyError, TypeError, ValueError, LookupError):
             raise ScanConfigurationError("provider configuration is invalid") from None
         return _ExecutionConfiguration(
             provider, str(row["profile_ref"]), str(row["username"])

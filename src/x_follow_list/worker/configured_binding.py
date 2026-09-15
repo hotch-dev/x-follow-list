@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import json
-from typing import Any
-
 from sqlalchemy import text
 
 from x_follow_list.application.binding import (
     BindingClaim,
     BrowserBindingService,
 )
-from x_follow_list.browser.contracts import BrowserSessionRequest, ProviderConfig
+from x_follow_list.browser.contracts import BrowserSessionRequest
 from x_follow_list.browser.registry import BrowserProviderRegistry
 from x_follow_list.persistence.database import Database
 from x_follow_list.worker.browser_binding import BrowserBindingJob, IdentityReader
+from x_follow_list.worker.provider_execution import provider_config_from_row
 
 
 class BindingConfigurationError(RuntimeError):
@@ -60,22 +58,9 @@ class ConfiguredBindingJob:
             ).mappings().one_or_none()
         if row is None:
             raise BindingConfigurationError("claimed binding configuration was not found")
-        raw_config: Any = row["config_json"]
-        if isinstance(raw_config, str):
-            try:
-                raw_config = json.loads(raw_config)
-            except json.JSONDecodeError:
-                raise BindingConfigurationError("provider configuration is invalid") from None
-        if not isinstance(raw_config, dict):
-            raise BindingConfigurationError("provider configuration is invalid")
         try:
-            provider = ProviderConfig(
-                str(row["provider_code"]),
-                int(row["config_version"]),
-                raw_config,
-                secret_ref=row["secret_ref"],
-            )
-        except (TypeError, ValueError):
+            provider = provider_config_from_row(row)
+        except (KeyError, TypeError, ValueError):
             raise BindingConfigurationError("provider configuration is invalid") from None
         return BrowserSessionRequest(
             provider, str(row["profile_ref"]), claim.session_id, headless=False
