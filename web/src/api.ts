@@ -118,9 +118,31 @@ export async function createBinding(
   })
 }
 
+export async function listAccounts() {
+  return (await request<ItemList<Account>>('/x-accounts')).items
+}
+
+export async function listScans() {
+  return (await request<ItemList<ScanRun>>('/scan-runs?limit=50')).items
+}
+
+export async function getScan(runId: string) {
+  return request<ScanRun>(`/scan-runs/${encodeURIComponent(runId)}`)
+}
+
+export async function createScan(accountId: string, csrfToken: string) {
+  return request<ScanRun>(`/x-accounts/${encodeURIComponent(accountId)}/scan-runs`, {
+    method: 'POST',
+    headers: {
+      'Idempotency-Key': crypto.randomUUID(),
+      'X-CSRF-Token': csrfToken,
+    },
+  })
+}
+
 export async function loadDashboard() {
-  const accounts = await request<ItemList<Account>>('/x-accounts')
-  const account = accounts.items[0]
+  const accounts = await listAccounts()
+  const account = accounts[0]
   if (!account) {
     return { accounts: [], scans: [], actionItems: [] }
   }
@@ -135,7 +157,7 @@ export async function loadDashboard() {
     request<ItemList<RelationshipEvent>>(`/relationship-events?${query}`),
   ])
   return {
-    accounts: accounts.items,
+    accounts,
     scans: scans.items,
     actionItems: events.items,
   }
