@@ -1,7 +1,7 @@
 # X 关注关系监控——阶段 A 开发计划
 
-> 状态：实施中 0.12（A-01 至 A-11 已完成）
-> 日期：2026-09-14  
+> 状态：实施中 0.13（A-01 至 A-13 已完成）
+> 日期：2026-09-15
 > 输入：需求基线 1.3 + [阶段 A 技术设计](./phase-a-technical-design.md) 0.1  
 > 目标：可按任务顺序直接实施、测试和验收
 
@@ -200,7 +200,7 @@ flowchart LR
 **测试**：Mock Service Worker 的成功/失败流程、轮询停止、空态/错误态、授权过期、键盘可达和基础无障碍。  
 **映射**：AC-08、AC-13、AC-19（P0 部分）
 
-### A-13 XLSX 生成与安全下载
+### A-13 XLSX 生成与安全下载（已完成）
 
 **依赖**：A-05、A-11  
 **产物**：流式 XLSX、artifact 元数据、幂等重建和授权下载
@@ -279,4 +279,4 @@ flowchart LR
 
 ## 7. 立即执行的下一项
 
-A-01 至 A-12 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)。下一项是 **A-13 XLSX 生成与安全下载**。
+A-01 至 A-13 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)。下一项是 **A-14 端到端、安全、性能与发布门禁**；真实 AdsPower 冒烟因当前订阅不支持 Local API，继续作为明确延期的发布前外部环境验证项。
