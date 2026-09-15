@@ -7,6 +7,10 @@ import { PageHeader } from './PageHeader'
 
 const terminalStatuses = new Set(['SUCCESS', 'FAILED', 'CANCELLED'])
 
+export function nextPollDelay(baseDelayMs: number, completedPolls: number) {
+  return Math.min(baseDelayMs * 2 ** completedPolls, 15_000)
+}
+
 export function ScansPage({
   csrfToken,
   pollIntervalMs = 2000,
@@ -28,7 +32,9 @@ export function ScansPage({
     enabled: activeRunId !== null,
     refetchInterval: (query) => {
       const run = query.state.data as ScanRun | undefined
-      return run && terminalStatuses.has(run.status) ? false : pollIntervalMs
+      return run && terminalStatuses.has(run.status)
+        ? false
+        : nextPollDelay(pollIntervalMs, query.state.dataUpdateCount)
     },
   })
   const run = activeRun.data ?? create.data ?? history.data?.[0]
