@@ -5,7 +5,7 @@ import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
-import { ScansPage } from './ScansPage'
+import { nextPollDelay, ScansPage } from './ScansPage'
 
 const server = setupServer()
 
@@ -33,6 +33,13 @@ function scan(status: 'QUEUED' | 'RUNNING' | 'FAILED') {
 }
 
 describe('A-12 manual scan journey', () => {
+  it('backs off active scan polling up to a bounded delay', () => {
+    expect(nextPollDelay(2000, 0)).toBe(2000)
+    expect(nextPollDelay(2000, 1)).toBe(4000)
+    expect(nextPollDelay(2000, 2)).toBe(8000)
+    expect(nextPollDelay(2000, 8)).toBe(15000)
+  })
+
   it('polls with idempotency until terminal failure and preserves last good data', async () => {
     let detailRequests = 0
     let idempotencyKey: string | null = null
