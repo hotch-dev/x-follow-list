@@ -46,6 +46,21 @@ async def test_worker_runtime_delegates_to_configured_task_loop() -> None:
     assert runtime.stop_requested is True
 
 
+@pytest.mark.asyncio
+async def test_worker_runtime_starts_binding_and_scan_loops_together() -> None:
+    binding_loop = FakeWorkerLoop()
+    scan_loop = FakeWorkerLoop()
+    runtime = WorkerRuntime(binding_loop, scan_loop)
+
+    worker_task = asyncio.create_task(runtime.run())
+    await asyncio.wait_for(binding_loop.started.wait(), timeout=0.1)
+    await asyncio.wait_for(scan_loop.started.wait(), timeout=0.1)
+    runtime.request_stop()
+    await asyncio.wait_for(worker_task, timeout=0.1)
+
+    assert runtime.stop_requested is True
+
+
 def test_worker_entrypoint_starts_async_runtime(monkeypatch: MonkeyPatch) -> None:
     called = False
     configured_levels: list[str] = []
