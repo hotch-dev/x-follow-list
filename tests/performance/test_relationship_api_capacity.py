@@ -112,4 +112,5 @@ async def test_relationship_query_p95_with_fifty_thousand_per_side(tmp_path: Pat
     await database.dispose()
     timings.sort()
     p95 = timings[18]
+    print(f"A14_RELATIONSHIP_API_P95_SECONDS={p95:.6f}")
     assert p95 < 0.5
