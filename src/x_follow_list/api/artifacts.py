@@ -13,8 +13,9 @@ from pydantic import BaseModel
 from x_follow_list.api.dependencies import authenticate_request
 from x_follow_list.application.auth import SESSION_COOKIE_NAME
 from x_follow_list.application.errors import ApplicationError, ResourceNotFoundError
-from x_follow_list.artifacts.xlsx import MIME_TYPE, XlsxArtifactService, file_metadata
+from x_follow_list.artifacts.xlsx import MIME_TYPE, XlsxArtifactService
 from x_follow_list.persistence.authorization import OwnedResourceRepository
+from x_follow_list.storage.files import file_metadata
 
 router = APIRouter(prefix="/api/v1", tags=["artifacts"])
 

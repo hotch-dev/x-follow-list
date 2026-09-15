@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import os
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime, timedelta, tzinfo
@@ -14,6 +13,7 @@ from sqlalchemy import text
 
 from x_follow_list.application.errors import ApplicationError, ResourceNotFoundError
 from x_follow_list.persistence.database import Database
+from x_follow_list.storage.files import file_metadata
 
 FORMULA_PREFIXES = ("=", "+", "-", "@")
 SHEET_NAMES = (
@@ -49,10 +49,6 @@ def write_xlsx_stream(
     return _write_workbook(target, sheets)
 
 
-def file_metadata(path: Path) -> tuple[str, int]:
-    return _hash_file(path)
-
-
 class XlsxArtifactService:
     def __init__(
         self, database: Database, storage_root: Path, display_timezone: str = "UTC"
@@ -75,7 +71,7 @@ class XlsxArtifactService:
         try:
             sheets = await self._sheet_rows(source)
             _write_workbook(temporary_path, sheets, fail_after_rows)
-            digest, byte_size = _hash_file(temporary_path)
+            digest, byte_size = file_metadata(temporary_path)
             os.replace(temporary_path, final_path)
             ready = await self._mark_ready(
                 str(artifact["id"]), final_path, digest, byte_size
@@ -350,16 +346,6 @@ def _format_local(value: datetime, timezone_name: str) -> str:
     except ZoneInfoNotFoundError:
         timezone = UTC
     return value.astimezone(timezone).isoformat()
-
-
-def _hash_file(path: Path) -> tuple[str, int]:
-    digest = hashlib.sha256()
-    size = 0
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-            size += len(chunk)
-    return digest.hexdigest(), size
 
 
 def _artifact_result(row: Mapping[str, Any], path: Path) -> dict[str, Any]:

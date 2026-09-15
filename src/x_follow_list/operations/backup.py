@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
+
+from x_follow_list.storage.files import file_metadata
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,15 +25,9 @@ def backup_database(source: Path, destination: Path) -> BackupMetadata:
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
     try:
-        source_connection = sqlite3.connect(source)
-        target_connection = sqlite3.connect(temporary)
-        try:
-            source_connection.backup(target_connection)
-        finally:
-            target_connection.close()
-            source_connection.close()
+        _copy_database(source, temporary)
         _require_integrity(temporary)
-        digest, size = _file_metadata(temporary)
+        digest, size = file_metadata(temporary)
         os.replace(temporary, target)
         return BackupMetadata(target, digest, size, datetime.now(UTC))
     except BaseException:
@@ -46,7 +41,7 @@ def restore_database(
     source = backup.resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
-    digest, _size = _file_metadata(source)
+    digest, _size = file_metadata(source)
     if expected_sha256 is not None and digest != expected_sha256:
         raise ValueError("backup integrity check failed: SHA-256 mismatch")
     try:
@@ -58,13 +53,7 @@ def restore_database(
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.{uuid4().hex}.tmp")
     try:
-        source_connection = sqlite3.connect(source)
-        target_connection = sqlite3.connect(temporary)
-        try:
-            source_connection.backup(target_connection)
-        finally:
-            target_connection.close()
-            source_connection.close()
+        _copy_database(source, temporary)
         _require_integrity(temporary)
         os.replace(temporary, destination)
     except BaseException:
@@ -82,11 +71,11 @@ def _require_integrity(path: Path) -> None:
         raise ValueError("database integrity check failed")
 
 
-def _file_metadata(path: Path) -> tuple[str, int]:
-    digest = hashlib.sha256()
-    size = 0
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-            size += len(chunk)
-    return digest.hexdigest(), size
+def _copy_database(source: Path, target: Path) -> None:
+    source_connection = sqlite3.connect(source)
+    target_connection = sqlite3.connect(target)
+    try:
+        source_connection.backup(target_connection)
+    finally:
+        target_connection.close()
+        source_connection.close()
