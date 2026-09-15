@@ -58,7 +58,9 @@ def create_app(
     app.state.monitoring_query_service = MonitoringQueryService(database, registry)
     app.state.provider_config_service = ProviderConfigService(database, registry)
     app.state.xlsx_artifact_service = XlsxArtifactService(
-        database, runtime_settings.data_dir / "artifacts"
+        database,
+        runtime_settings.data_dir / "artifacts",
+        runtime_settings.display_timezone,
     )
 
     @app.middleware("http")

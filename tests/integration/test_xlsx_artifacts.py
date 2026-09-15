@@ -26,6 +26,7 @@ async def prepared_app(tmp_path: Path) -> FastAPI:
         data_dir=tmp_path,
         bootstrap_token=SecretStr("one-time-bootstrap-token"),
         app_origin=ORIGIN,
+        display_timezone="Asia/Taipei",
     )
     await asyncio.to_thread(command.upgrade, alembic_config(settings), "head")
     return create_app(settings)
@@ -49,10 +50,6 @@ async def login_and_seed(client: httpx.AsyncClient, app: FastAPI) -> tuple[str, 
     owner_id = str(bootstrap.json()["id"])
     now = datetime(2026, 9, 15, 4, 0, tzinfo=UTC)
     async with app.state.database.session() as session:
-        await session.execute(
-            text("UPDATE users SET timezone='Asia/Taipei' WHERE id=:owner"),
-            {"owner": owner_id},
-        )
         await session.execute(
             text(
                 "INSERT INTO browser_provider_configs "
@@ -216,9 +213,9 @@ async def test_membership_download_authorization_hides_foreign_and_deleted_artif
             await session.execute(
                 text(
                     "INSERT INTO users "
-                    "(id,email,password_hash,role,timezone,created_at,updated_at) VALUES "
-                    "('viewer','viewer@example.test','unused','VIEWER','UTC',:now,:now),"
-                    "('foreign','foreign@example.test','unused','OWNER','UTC',:now,:now)"
+                    "(id,email,password_hash,role,created_at,updated_at) VALUES "
+                    "('viewer','viewer@example.test','unused','VIEWER',:now,:now),"
+                    "('foreign','foreign@example.test','unused','OWNER',:now,:now)"
                 ),
                 {"now": now.isoformat()},
             )

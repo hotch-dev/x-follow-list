@@ -50,9 +50,12 @@ def write_xlsx_stream(
 
 
 class XlsxArtifactService:
-    def __init__(self, database: Database, storage_root: Path) -> None:
+    def __init__(
+        self, database: Database, storage_root: Path, display_timezone: str = "UTC"
+    ) -> None:
         self._database = database
         self._storage_root = storage_root.resolve()
+        self._display_timezone = display_timezone
 
     async def build(
         self, scan_run_id: str, *, fail_after_rows: int | None = None
@@ -87,10 +90,10 @@ class XlsxArtifactService:
                     text(
                         "SELECT r.id AS scan_run_id,r.status,r.follower_count,r.following_count,"
                         "r.finished_at,s.id AS snapshot_id,s.captured_at,a.id AS account_id,"
-                        "a.x_user_id,a.username,a.display_name,u.timezone "
+                        "a.x_user_id,a.username,a.display_name "
                         "FROM scan_runs r JOIN relationship_snapshots s ON s.scan_run_id=r.id "
                         "JOIN x_accounts a ON a.id=r.x_account_id "
-                        "JOIN users u ON u.id=a.owner_user_id WHERE r.id=:run"
+                        "WHERE r.id=:run"
                     ),
                     {"run": scan_run_id},
                 )
@@ -161,7 +164,7 @@ class XlsxArtifactService:
     ) -> tuple[tuple[str, Iterable[Sequence[object]]], ...]:
         snapshot_id = str(source["snapshot_id"])
         run_id = str(source["scan_run_id"])
-        timezone_name = str(source["timezone"] or "UTC")
+        timezone_name = self._display_timezone
         async with self._database.session() as session:
             memberships = [
                 dict(row)

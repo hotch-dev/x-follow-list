@@ -6,6 +6,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Self
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
@@ -28,6 +29,7 @@ class Settings(BaseModel):
     sqlite_busy_timeout_ms: int = Field(default=5000, ge=100, le=120_000)
     session_ttl_seconds: int = Field(default=43_200, ge=300, le=604_800)
     app_origin: str = "http://127.0.0.1:8000"
+    display_timezone: str = "UTC"
     log_level: str = "INFO"
 
     @model_validator(mode="after")
@@ -52,6 +54,11 @@ class Settings(BaseModel):
         ):
             raise ValueError("app origin must be an HTTP(S) origin without path or credentials")
         object.__setattr__(self, "app_origin", origin)
+
+        try:
+            ZoneInfo(self.display_timezone)
+        except ZoneInfoNotFoundError:
+            raise ValueError("display timezone must be a valid IANA timezone") from None
 
         if self.environment is RuntimeEnvironment.PRODUCTION:
             secret = self.master_key.get_secret_value() if self.master_key else ""
@@ -79,6 +86,7 @@ class Settings(BaseModel):
             "X_FOLLOW_LIST_SQLITE_BUSY_TIMEOUT_MS": "sqlite_busy_timeout_ms",
             "X_FOLLOW_LIST_SESSION_TTL_SECONDS": "session_ttl_seconds",
             "X_FOLLOW_LIST_APP_ORIGIN": "app_origin",
+            "X_FOLLOW_LIST_DISPLAY_TIMEZONE": "display_timezone",
             "X_FOLLOW_LIST_LOG_LEVEL": "log_level",
         }
         values = {
