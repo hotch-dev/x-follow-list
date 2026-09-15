@@ -1,4 +1,5 @@
 import type { Account, ScanRun } from './api'
+import { formatUtc } from './format'
 import { PageHeader } from './PageHeader'
 
 interface DashboardData {
@@ -16,10 +17,6 @@ const sessionNames: Record<string, string> = {
   READY: '已连接',
   REAUTH_REQUIRED: '需要重新验证',
   DISABLED: '已停用',
-}
-
-function formatUtc(value: string | null) {
-  return value ? `${value.slice(0, 16).replace('T', ' ')} UTC` : '尚无成功扫描'
 }
 
 export function Dashboard({ data }: { data: DashboardData }) {
@@ -52,7 +49,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
         </article>
         <article className="card">
           <p className="card-label">可靠数据截至</p>
-          <p className="metric-time">{formatUtc(lastSuccess)}</p>
+          <p className="metric-time">{formatUtc(lastSuccess, '尚无成功扫描')}</p>
           {latestScan?.status === 'FAILED' && (
             <p className="data-note">数据仍来自上次成功扫描</p>
           )}

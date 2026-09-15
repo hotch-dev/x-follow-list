@@ -2,13 +2,10 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { createScan, getScan, listAccounts, listScans, type ScanRun } from './api'
+import { formatUtc } from './format'
 import { PageHeader } from './PageHeader'
 
 const terminalStatuses = new Set(['SUCCESS', 'FAILED', 'CANCELLED'])
-
-function formatUtc(value: string | null) {
-  return value ? `${value.slice(0, 16).replace('T', ' ')} UTC` : '尚无成功数据'
-}
 
 export function ScansPage({
   csrfToken,
