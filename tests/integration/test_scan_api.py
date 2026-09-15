@@ -168,6 +168,7 @@ async def test_owner_lists_account_and_enqueues_one_idempotent_active_scan(
             "session_status": "READY",
             "provider_code": "DIRECT_CHROME",
             "profile_ref": "profile",
+            "version": 1,
             "last_successful_scan_at": None,
         }
     ]

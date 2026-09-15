@@ -196,4 +196,113 @@ describe('A-12 AdsPower account binding journey', () => {
     expect(requestsAtComplete).toBeGreaterThanOrEqual(1)
     await waitFor(() => expect(detailRequests).toBe(requestsAtComplete), { timeout: 80 })
   })
+
+  it('requires confirmation before revalidating an account with its existing profile', async () => {
+    let revalidationRequest: unknown
+    server.use(
+      http.get('/api/v1/browser-provider-configs', () =>
+        HttpResponse.json({ items: [] }),
+      ),
+      http.get('/api/v1/x-accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'account-1',
+              x_user_id: '42',
+              username: 'alice',
+              display_name: 'Alice',
+              session_status: 'REAUTH_REQUIRED',
+              provider_code: 'ADSPOWER',
+              profile_ref: 'profile-3',
+              version: 3,
+              last_successful_scan_at: null,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/x-account-bind-sessions', async ({ request }) => {
+        revalidationRequest = await request.json()
+        return HttpResponse.json(
+          {
+            id: 'binding-revalidate',
+            provider_code: 'ADSPOWER',
+            profile_ref: 'profile-3',
+            target_account_id: 'account-1',
+            status: 'WAITING_FOR_LOGIN',
+            detected_identity: null,
+            error_code: null,
+          },
+          { status: 202 },
+        )
+      }),
+      http.get('/api/v1/x-account-bind-sessions/binding-revalidate', () =>
+        HttpResponse.json({
+          id: 'binding-revalidate',
+          provider_code: 'ADSPOWER',
+          profile_ref: 'profile-3',
+          target_account_id: 'account-1',
+          status: 'WAITING_FOR_LOGIN',
+          detected_identity: null,
+          error_code: null,
+        }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '重新验证 Alice' }))
+
+    expect(screen.getByText('重新验证会打开该账号现有的浏览器环境。')).toBeVisible()
+    expect(revalidationRequest).toBeUndefined()
+    await user.click(screen.getByRole('button', { name: '确认重新验证' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '等待在profile-3 中手工登录 X',
+    )
+    expect(revalidationRequest).toEqual({ x_account_id: 'account-1' })
+  })
+
+  it('requires confirmation and the current version before unbinding', async () => {
+    let unbindRequest: unknown
+    let csrfHeader: string | null = null
+    server.use(
+      http.get('/api/v1/browser-provider-configs', () =>
+        HttpResponse.json({ items: [] }),
+      ),
+      http.get('/api/v1/x-accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'account-1',
+              x_user_id: '42',
+              username: 'alice',
+              display_name: 'Alice',
+              session_status: 'READY',
+              provider_code: 'ADSPOWER',
+              profile_ref: 'profile-3',
+              version: 4,
+              last_successful_scan_at: null,
+            },
+          ],
+        }),
+      ),
+      http.delete('/api/v1/x-accounts/account-1', async ({ request }) => {
+        unbindRequest = await request.json()
+        csrfHeader = request.headers.get('X-CSRF-Token')
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const user = userEvent.setup()
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: '解绑 Alice' }))
+
+    expect(screen.getByText('解绑会停止新扫描并删除本地会话引用。')).toBeVisible()
+    expect(unbindRequest).toBeUndefined()
+    await user.click(screen.getByRole('button', { name: '确认解绑' }))
+
+    await waitFor(() => expect(unbindRequest).toEqual({ version: 4, delete_history: false }))
+    expect(csrfHeader).toBe('csrf-token')
+    expect(screen.queryByRole('heading', { name: 'Alice' })).not.toBeInTheDocument()
+  })
 })
