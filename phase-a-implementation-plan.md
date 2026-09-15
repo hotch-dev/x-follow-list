@@ -1,6 +1,6 @@
 # X 关注关系监控——阶段 A 开发计划
 
-> 状态：已完成 0.14（A-01 至 A-14 已完成）
+> 状态：已完成 0.14.1（A-01 至 A-14 已完成，production worker 接线已补齐）
 > 日期：2026-09-15
 > 输入：需求基线 1.3 + [阶段 A 技术设计](./phase-a-technical-design.md) 0.1  
 > 目标：可按任务顺序直接实施、测试和验收
@@ -279,4 +279,4 @@ flowchart LR
 
 ## 7. 立即执行的下一项
 
-A-01 至 A-14 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)、[A-14](./docs/tdd/a-14-release-gates.tdd.md)。阶段 A 已收口；下一开发项按第 6 节进入阶段 B。AdsPower 按用户决定不再测试，不是延期项，也不声明真实环境通过。
+A-01 至 A-14 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)、[A-14](./docs/tdd/a-14-release-gates.tdd.md)。审计发现并补齐的 production worker 接线另见 [A-14 worker runtime 证据](./docs/tdd/a-14-worker-runtime.tdd.md)。阶段 A 已收口；下一开发项按第 6 节进入阶段 B。AdsPower 按用户决定不再测试，不是延期项，也不声明真实环境通过。

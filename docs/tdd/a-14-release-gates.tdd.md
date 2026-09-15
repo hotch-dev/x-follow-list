@@ -88,3 +88,5 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 `f01baf7 (RED) → 217d717 (GREEN) → f7ed3bf (重构) → 1fe25f7 (峰值 RSS 校正) → 3d8e91b (完整绑定 E2E)`
 
 检查点位于 `main` 连续历史中，未 squash 或改写。
+
+生产 worker 入口的后续审计修正与独立 RED/GREEN/重构证据见 [A-14 worker runtime](./a-14-worker-runtime.tdd.md)。

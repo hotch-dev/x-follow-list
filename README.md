@@ -26,7 +26,7 @@ npm install
 # API: http://127.0.0.1:8000/health/live
 & '.\.venv\Scripts\x-follow-list-api.exe'
 
-# Worker 进程入口
+# Worker：并行消费绑定会话和扫描任务
 & '.\.venv\Scripts\x-follow-list-worker.exe'
 
 # React 开发服务器（在 web 目录）
@@ -86,6 +86,7 @@ pwsh -File .\scripts\check.ps1 -NodePath 'C:\path\to\supported\node.exe'
 - [A-04 TDD 证据](./docs/tdd/a-04-relationship-domain.tdd.md)
 - [A-05 TDD 证据](./docs/tdd/a-05-snapshot-persistence.tdd.md)
 - [A-14 发布门禁 TDD 证据](./docs/tdd/a-14-release-gates.tdd.md)
+- [A-14 production worker 接线 TDD 证据](./docs/tdd/a-14-worker-runtime.tdd.md)
 - [部署与回滚](./docs/deployment.md)
 - [备份与恢复](./docs/backup-restore.md)
 - [已知限制](./docs/known-limitations.md)
