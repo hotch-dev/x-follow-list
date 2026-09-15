@@ -17,6 +17,7 @@ from x_follow_list.persistence.database import Database
 from x_follow_list.persistence.migrations import alembic_config
 from x_follow_list.worker.browser_session import BrowserSessionJob
 from x_follow_list.worker.relationship_scan import RelationshipScanJob
+from x_follow_list.worker.scan_loop import ScanWorker
 
 
 async def prepared_database(tmp_path: Path) -> Database:
@@ -84,9 +85,6 @@ async def test_direct_chrome_completes_scan_diff_event_and_xlsx_journey(
         run_id = await coordinator.enqueue(
             "owner", "account", f"journey-{index}", f"journey-{index}"
         )
-        claim = await coordinator.claim_next("release-worker")
-        assert claim is not None
-        leases = await coordinator.acquire_scan_leases(claim)
         relationship_scan = RelationshipScanJob(
             database,
             coordinator,
@@ -100,7 +98,7 @@ async def test_direct_chrome_completes_scan_diff_event_and_xlsx_journey(
             ),
             relationship_scan,
         )
-        await browser_job(claim, leases)
+        assert await ScanWorker(coordinator, "release-worker", browser_job).run_once()
         run_ids.append(run_id)
 
     async with database.session() as session:
@@ -116,7 +114,7 @@ async def test_direct_chrome_completes_scan_diff_event_and_xlsx_journey(
             await session.execute(
                 text(
                     "SELECT subject_x_user_id,event_type FROM relationship_events "
-                    "WHERE scan_run_id=:run"
+                    "WHERE scan_run_id=:run AND event_type='UNFOLLOWED_ME_AFTER_MUTUAL'"
                 ),
                 {"run": run_ids[1]},
             )

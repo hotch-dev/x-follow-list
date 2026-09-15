@@ -1,0 +1,13 @@
+FROM mcr.microsoft.com/playwright/python:v1.62.0-noble
+
+WORKDIR /opt/x-follow-list
+COPY pyproject.toml ./
+COPY src ./src
+COPY migrations ./migrations
+COPY alembic.ini ./
+RUN pip install --no-cache-dir .
+
+ENV X_FOLLOW_LIST_ENV=production \
+    X_FOLLOW_LIST_DATA_DIR=/var/lib/x-follow-list
+USER pwuser
+EXPOSE 8000

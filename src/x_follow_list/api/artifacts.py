@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from x_follow_list.api.dependencies import authenticate_request
 from x_follow_list.application.auth import SESSION_COOKIE_NAME
 from x_follow_list.application.errors import ApplicationError, ResourceNotFoundError
-from x_follow_list.artifacts.xlsx import MIME_TYPE, XlsxArtifactService
+from x_follow_list.artifacts.xlsx import MIME_TYPE, XlsxArtifactService, file_metadata
 from x_follow_list.persistence.authorization import OwnedResourceRepository
 
 router = APIRouter(prefix="/api/v1", tags=["artifacts"])
@@ -77,6 +77,9 @@ async def download_artifact(
         request.app.state.settings.data_dir,
     )
     if storage_root not in path.parents or not exists:
+        raise ResourceNotFoundError
+    digest, byte_size = await asyncio.to_thread(file_metadata, path)
+    if digest != artifact["sha256"] or byte_size != artifact["byte_size"]:
         raise ResourceNotFoundError
     response = FileResponse(
         path,

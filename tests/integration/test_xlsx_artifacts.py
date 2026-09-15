@@ -310,7 +310,12 @@ async def test_download_rejects_path_escape_and_hash_mismatch(tmp_path: Path) ->
             "/api/v1/scan-runs/run/artifacts/xlsx", headers=headers(csrf)
         )
         artifact_id = str(created.json()["id"])
-        artifact_path = Path(str(created.json()["storage_path"]))
+        async with app.state.database.session() as session:
+            storage_path = await session.scalar(
+                text("SELECT storage_path FROM artifacts WHERE id=:id"),
+                {"id": artifact_id},
+            )
+        artifact_path = Path(str(storage_path))
         await asyncio.to_thread(artifact_path.write_bytes, b"tampered")
 
         corrupted = await client.get(f"/api/v1/artifacts/{artifact_id}/download")

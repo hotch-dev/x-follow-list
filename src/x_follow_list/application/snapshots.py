@@ -384,6 +384,21 @@ class SnapshotCommitService:
                     {"n": now, "a": account_id},
                 )
                 self._fault("after_account_update")
+                if leases is not None:
+                    for lease in leases:
+                        await session.execute(
+                            text(
+                                "UPDATE resource_leases SET heartbeat_at=:n,expires_at=:n "
+                                "WHERE resource_key=:key AND owner_task_id=:r "
+                                "AND fencing_token=:token"
+                            ),
+                            {
+                                "n": now,
+                                "key": lease.resource_key,
+                                "r": run_id,
+                                "token": lease.fencing_token,
+                            },
+                        )
                 await session.commit()
             except Exception:
                 await session.rollback()

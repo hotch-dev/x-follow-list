@@ -49,6 +49,10 @@ def write_xlsx_stream(
     return _write_workbook(target, sheets)
 
 
+def file_metadata(path: Path) -> tuple[str, int]:
+    return _hash_file(path)
+
+
 class XlsxArtifactService:
     def __init__(
         self, database: Database, storage_root: Path, display_timezone: str = "UTC"

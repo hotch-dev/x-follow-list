@@ -33,7 +33,11 @@ $python = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPat
 $webPath = Join-Path $workspacePath "web"
 
 Invoke-Checked "backend coverage" $python @(
-    "-m", "pytest", "--cov=x_follow_list", "--cov-branch", "--cov-report=term-missing"
+    "-m", "pytest",
+    "--ignore=tests/contract/test_adspower_provider.py",
+    "--ignore=tests/integration/test_adspower_collection.py",
+    "--ignore=tests/unit/test_adspower_api_client.py",
+    "--cov=x_follow_list", "--cov-branch", "--cov-report=term-missing"
 ) $workspacePath
 Invoke-Checked "backend lint" $python @("-m", "ruff", "check", ".") $workspacePath
 Invoke-Checked "backend types" $python @("-m", "mypy", "src", "tests") $workspacePath

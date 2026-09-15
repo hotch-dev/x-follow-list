@@ -344,6 +344,14 @@ class ScanCoordinator:
                         ),
                         {"now": now, "run": run_id},
                     )
+                    await connection.execute(
+                        text("DELETE FROM scan_staging_progress WHERE scan_run_id=:run"),
+                        {"run": run_id},
+                    )
+                    await connection.execute(
+                        text("DELETE FROM scan_staging_memberships WHERE scan_run_id=:run"),
+                        {"run": run_id},
+                    )
                 await connection.commit()
                 return run_ids
             except BaseException:
