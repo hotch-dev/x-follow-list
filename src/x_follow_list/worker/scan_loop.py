@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Callable, Coroutine
 from typing import Any, Protocol
 
 from x_follow_list.application.scan_coordination import (
     LeaseConflictError,
+    LeaseLostError,
     ResourceLease,
     ScanClaim,
 )
@@ -22,12 +24,21 @@ class Coordinator(Protocol):
         self, claim: ScanClaim, error_code: str, error_summary: str
     ) -> None: ...
 
+    async def finish_failed(
+        self,
+        claim: ScanClaim,
+        leases: tuple[ResourceLease, ...],
+        error_code: str,
+        error_summary: str,
+    ) -> None: ...
+
     async def heartbeat(
         self, claim: ScanClaim, leases: tuple[ResourceLease, ...]
     ) -> None: ...
 
 
 JobHandler = Callable[[ScanClaim, tuple[ResourceLease, ...]], Coroutine[Any, Any, None]]
+_SAFE_ERROR_CODE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 
 
 class ScanWorker:
@@ -76,6 +87,19 @@ class ScanWorker:
                     return True
                 except TimeoutError:
                     await self._coordinator.heartbeat(claim, leases)
+                except Exception as error:
+                    error_code = getattr(error, "code", "SCAN_FAILED")
+                    if not isinstance(error_code, str) or not _SAFE_ERROR_CODE.fullmatch(
+                        error_code
+                    ):
+                        error_code = "SCAN_FAILED"
+                    try:
+                        await self._coordinator.finish_failed(
+                            claim, leases, error_code, "scan execution failed"
+                        )
+                    except LeaseLostError:
+                        pass
+                    return True
         except BaseException:
             job.cancel()
             try:
