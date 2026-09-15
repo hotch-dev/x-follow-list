@@ -1,6 +1,6 @@
 # X 关注关系监控——阶段 A 开发计划
 
-> 状态：实施中 0.13（A-01 至 A-13 已完成）
+> 状态：已完成 0.14（A-01 至 A-14 已完成）
 > 日期：2026-09-15
 > 输入：需求基线 1.3 + [阶段 A 技术设计](./phase-a-technical-design.md) 0.1  
 > 目标：可按任务顺序直接实施、测试和验收
@@ -9,7 +9,7 @@
 
 - 以可运行的纵向闭环为交付单位，不先写大量未被用例驱动的通用框架。
 - 每个任务在合并前必须通过本任务列出的自动化测试，并不得破坏已通过的契约测试。
-- 先用本地模拟 X 页和固定载荷实现可重复验证，再做真实 Chrome/AdsPower 冒烟测试。
+- 使用本地模拟 X 页和固定载荷实现可重复验证；真实 Chrome 只访问本地夹具，AdsPower 按用户决定不再测试。
 - 任何绕过完整性校验、使用 X 显示名作关联键、记录 CDP/Cookie/token 或在 HTTP 请求内运行浏览器的实现不得合并。
 
 ## 2. 里程碑
@@ -170,7 +170,7 @@ flowchart LR
 - 实现启动所有权、CDP 端点验证、`connect_over_cdp` 和所有权感知的 stop/detach。
 - 记录 adapter/provider/browser 版本，建立支持版本矩阵。
 
-**测试**：伪 Provider API + 可控 CDP 浏览器；错误 URL、恶意重定向、无效 token、已运行 profile、由本任务启动的 profile、断线和重复释放。发布前执行真实 AdsPower 本地模拟页冒烟测试。  
+**测试**：历史检查点已用伪 Provider API + 可控 CDP 浏览器覆盖错误 URL、恶意重定向、无效 token、已运行 profile、由本任务启动的 profile、断线和重复释放。自 A-14 起按用户决定不再执行 AdsPower 自动化或实机测试；A-10 代码与历史证据保留。
 **映射**：AC-01、AC-12、AC-17
 
 ### A-11 扫描应用服务与 API（已完成）
@@ -213,19 +213,19 @@ flowchart LR
 **测试**：每个 sheet/字段、恶意公式字符串、5 万行内存、重建幂等、中途写入失败无半文件、跨用户下载 404。  
 **映射**：AC-09、AC-13、AC-14
 
-### A-14 端到端、安全、性能与发布门禁
+### A-14 端到端、安全、性能与发布门禁（已完成）
 
 **依赖**：A-09至 A-13  
 **产物**：可重复验收记录、部署文档和阶段 A 发布候选版
 
 - 用 Direct Chrome + 本地 X 模拟页执行“绑定 → 两次扫描 → 事件 → UI → XLSX” E2E。
-- 用受支持 AdsPower 版本执行本地模拟页冒烟测试，记录兼容性矩阵。
+- 记录 AdsPower 退出当前发布验证范围的用户决定；不执行自动化或实机测试，也不声明真实环境通过。
 - 执行 SSRF/CDP 端点、凭据日志、跨用户枚举、XLSX 公式注入和文件路径穿越测试。
 - 执行任务步骤故障注入、worker kill/restart、租约丢失和 staging 清理。
 - 执行 5 万/5 万夹具的 API p95、比对耗时和内存基线。
 - 编写开发/生产配置、备份恢复、迁移、回滚、健康检查和已知限制文档。
 
-**通过条件**：技术设计第 19 节所有退出条件满足，无未说明高风险安全/隐私问题。  
+**通过条件**：除已明确退出范围的 AdsPower 真实能力外，技术设计第 19 节阶段 A 退出条件满足，无未说明高风险安全/隐私问题。
 **映射**：AC-01至 AC-06、AC-08、AC-09、AC-12至 AC-15、AC-17、AC-19（P0 部分）
 
 ## 4. 依赖顺序
@@ -279,4 +279,4 @@ flowchart LR
 
 ## 7. 立即执行的下一项
 
-A-01 至 A-13 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)。下一项是 **A-14 端到端、安全、性能与发布门禁**；真实 AdsPower 冒烟因当前订阅不支持 Local API，继续作为明确延期的发布前外部环境验证项。
+A-01 至 A-14 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)、[A-14](./docs/tdd/a-14-release-gates.tdd.md)。阶段 A 已收口；下一开发项按第 6 节进入阶段 B。AdsPower 按用户决定不再测试，不是延期项，也不声明真实环境通过。

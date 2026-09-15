@@ -101,10 +101,10 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 
 所有覆盖率维度保持在 80% 门禁以上，无 skipped/disabled 测试。
 
-## 7. Git 检查点与延期项
+## 7. Git 检查点与后续范围决定
 
 检查点位于 `main` 连续历史中，未 squash 或改写：
 
 `4f3fcae (RED) → c616222 (GREEN) → 9c1bb2d (重构) → d440b6a (全门禁兼容修正)`
 
-真实 AdsPower Local API 冒烟仍因当前订阅不支持 Local API 而延期。本任务没有执行 AdsPower 实机测试，也没有将其伪造为通过；状态继续以 [A-10 证据](./a-10-adspower-provider.tdd.md) 和 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md) 为准。
+本任务没有执行 AdsPower 实机测试，也没有将其伪造为通过。用户在 A-14 已决定 AdsPower 不再测试，该项不再作为延期；状态以 [A-10 证据](./a-10-adspower-provider.tdd.md) 和 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md) 为准。

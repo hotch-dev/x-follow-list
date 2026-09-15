@@ -65,6 +65,6 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 
 所有覆盖率维度均保持在 80% 门禁以上，无 skipped/disabled 测试。
 
-## 5. 真实 AdsPower 发布验证
+## 5. AdsPower 范围决定
 
-真实 AdsPower `/status` 已在线，`ADSPOWER_API_TOKEN` 也已通过环境 secret reference 提供；但 profile list 返回该功能仅对付费订阅开放，因此“环境 3”的真实本地模拟页冒烟没有被伪造为通过。该发布前验证状态和后续步骤记录在 [A-10 证据](./a-10-adspower-provider.tdd.md) 与 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。
+历史上真实 AdsPower profile list 因订阅权限被拒绝，且没有伪造通过。用户在 A-14 明确决定该部分不再测试，因此它不再是发布前延期项；既有 UI 能力、A-10 代码和历史证据保留。详见 [A-10 证据](./a-10-adspower-provider.tdd.md) 与 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。

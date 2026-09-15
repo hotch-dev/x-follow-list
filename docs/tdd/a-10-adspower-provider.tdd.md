@@ -67,9 +67,9 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 
 首次统一脚本在受限沙箱中启动 Playwright 时两个既有 Chrome E2E 因 Windows 命名管道 `WinError 5` 失败；同一完整命令在获准的沙箱外运行后 194 tests 全部通过。这是执行环境权限限制，不是业务 GREEN。
 
-## 6. 真实 AdsPower 冒烟状态
+## 6. 真实 AdsPower 验证范围
 
-2026-09-15 复验开发机 `http://127.0.0.1:50325/status` 返回 HTTP 200、`code=0`，确认真实 AdsPower Local API 已启动。用户随后通过 `env://ADSPOWER_API_TOKEN` 配置了格式有效的 API Key；受控 profile list 请求到达 AdsPower 后返回 `code=-1`、`This feature is only available in paid subscriptions.`。因此当前阻塞点是 AdsPower 账号缺少 Local API 订阅授权，仍不能安全列出用户指定的“环境 3”或执行 start/attach/collect/detach/stop。没有绕过授权或伪造通过；真实 AdsPower + 本地模拟 X 页冒烟仍是发布前外部环境验证项，待开通 Local API 权限后执行，步骤和版本记录口径见 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。
+2026-09-15 的历史探测确认真实 Local API 进程在线，但 profile list 因订阅权限被拒绝。用户在 A-14 明确决定 AdsPower 部分不再测试。该项现为退出范围，而非延期验证：不再执行 AdsPower 自动化或实机冒烟，不绕过订阅，也不声明真实环境通过。A-10 代码、上述历史结果与检查点保持不变，口径见 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。
 
 ## 7. Git 检查点
 

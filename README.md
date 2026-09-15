@@ -1,6 +1,6 @@
 # X Follow List
 
-可自托管的 X 关注关系监控系统。当前正在实施阶段 A，已完成工程骨架、配置/日志/SQLite 基础、本地 OWNER 认证与授权边界、纯领域关系状态机，以及原子快照持久化。
+可自托管的 X 关注关系监控系统。阶段 A 已完成：本地 OWNER 管理后台、Direct Chrome 绑定与扫描、原子关系快照和事件、安全 XLSX 下载、恢复/性能门禁与部署材料均已有自动化证据。
 
 ## 环境要求
 
@@ -26,7 +26,7 @@ npm install
 # API: http://127.0.0.1:8000/health/live
 & '.\.venv\Scripts\x-follow-list-api.exe'
 
-# Worker（当前仅包含可安全退出的生命周期骨架）
+# Worker 进程入口
 & '.\.venv\Scripts\x-follow-list-worker.exe'
 
 # React 开发服务器（在 web 目录）
@@ -85,3 +85,7 @@ pwsh -File .\scripts\check.ps1 -NodePath 'C:\path\to\supported\node.exe'
 - [A-03 TDD 证据](./docs/tdd/a-03-owner-auth.tdd.md)
 - [A-04 TDD 证据](./docs/tdd/a-04-relationship-domain.tdd.md)
 - [A-05 TDD 证据](./docs/tdd/a-05-snapshot-persistence.tdd.md)
+- [A-14 发布门禁 TDD 证据](./docs/tdd/a-14-release-gates.tdd.md)
+- [部署与回滚](./docs/deployment.md)
+- [备份与恢复](./docs/backup-restore.md)
+- [已知限制](./docs/known-limitations.md)
