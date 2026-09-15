@@ -7,14 +7,16 @@ from alembic import command
 from openpyxl import load_workbook
 from sqlalchemy import text
 
+from x_follow_list.application.binding import BindingClaim, BrowserBindingService
 from x_follow_list.application.scan_coordination import ScanCoordinator
 from x_follow_list.artifacts.xlsx import XlsxArtifactService
-from x_follow_list.browser.contracts import BrowserSessionRequest, ProviderConfig
+from x_follow_list.browser.contracts import BrowserSession, BrowserSessionRequest, ProviderConfig
 from x_follow_list.browser.direct_chrome import DirectChromeProvider
 from x_follow_list.browser.registry import BrowserProviderRegistry
 from x_follow_list.config import RuntimeEnvironment, Settings
 from x_follow_list.persistence.database import Database
 from x_follow_list.persistence.migrations import alembic_config
+from x_follow_list.worker.browser_binding import BrowserBindingJob, DetectedIdentity
 from x_follow_list.worker.browser_session import BrowserSessionJob
 from x_follow_list.worker.relationship_scan import RelationshipScanJob
 from x_follow_list.worker.scan_loop import ScanWorker
@@ -40,23 +42,6 @@ async def prepared_database(tmp_path: Path) -> Database:
             ),
             {"config": config, "n": now},
         )
-        await session.execute(
-            text(
-                "INSERT INTO x_accounts "
-                "(id,owner_user_id,provider_config_id,profile_ref,profile_ref_hash,x_user_id,"
-                "status,created_at,updated_at) VALUES "
-                "('account','owner','provider','phase-a','hash','self','READY',:n,:n)"
-            ),
-            {"n": now},
-        )
-        await session.execute(
-            text(
-                "INSERT INTO x_account_memberships "
-                "(x_account_id,user_id,role,created_at,updated_at) "
-                "VALUES ('account','owner','OWNER',:n,:n)"
-            ),
-            {"n": now},
-        )
         await session.commit()
     return database
 
@@ -79,11 +64,30 @@ async def test_direct_chrome_completes_scan_diff_event_and_xlsx_journey(
     provider_config = ProviderConfig(
         "DIRECT_CHROME", 1, {"profiles_root": str((tmp_path / "profiles").resolve())}
     )
+    binding_service = BrowserBindingService(database)
+    binding = await binding_service.create("owner", "provider", "phase-a")
+    binding_claim = await binding_service.claim_next("release-worker")
+    assert binding_claim is not None
+
+    async def binding_request(_claim: BindingClaim) -> BrowserSessionRequest:
+        return BrowserSessionRequest(
+            provider_config, binding.profile_ref, binding.session_id, headless=False
+        )
+
+    async def read_local_identity(session: BrowserSession) -> DetectedIdentity:
+        page = session.context.pages[0]
+        await page.goto(f"{fixture_origin}/profile?scenario=phase_a_baseline")
+        return DetectedIdentity("self", "owner", "Owner")
+
+    await BrowserBindingJob(
+        binding_service, registry, binding_request, read_local_identity
+    )(binding_claim)
+    account_id = await binding_service.confirm("owner", binding.session_id)
 
     run_ids: list[str] = []
     for index, scenario in enumerate(("phase_a_baseline", "phase_a_changed"), start=1):
         run_id = await coordinator.enqueue(
-            "owner", "account", f"journey-{index}", f"journey-{index}"
+            "owner", account_id, f"journey-{index}", f"journey-{index}"
         )
         relationship_scan = RelationshipScanJob(
             database,
