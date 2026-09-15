@@ -1,6 +1,6 @@
 # Browser Provider 兼容性矩阵
 
-> 更新日期：2026-09-14
+> 更新日期：2026-09-15
 > 适配器发布：阶段 A / A-10
 
 ## 支持矩阵
@@ -29,7 +29,7 @@ AdsPower 3.4.1 是 V2 browser start 官方文档列出的最低应用版本。A-
 
 ## 发布前真实 AdsPower 冒烟
 
-2026-09-14 在开发机探测 `http://127.0.0.1:50325/status`，2 秒内无响应，本机没有可用 AdsPower Local API。以下验证项必须在具有 AdsPower 3.4.1+、Local API 权限、已有测试 profile 和本地模拟 X 页的外部环境执行后，才能将真实 AdsPower 状态改为通过：
+2026-09-15 在开发机探测 `http://127.0.0.1:50325/status`，返回 HTTP 200、`code=0`，真实 AdsPower Local API 已在线。当前进程和用户级环境没有 `ADSPOWER_API_TOKEN`，profile list 的无效凭据探测返回 `API Key mismatch`；因此用户指定的“环境 3”尚未被列出或启动。以下验证项必须在通过 `env://ADSPOWER_API_TOKEN` 提供有效 Local API 凭据后执行，才能将真实 AdsPower 状态改为通过：
 
 1. 列出并选择已有测试 profile，不创建或修改 profile。
 2. 对原本未运行的 profile：start → CDP → 本地模拟页采集 → detach → stop。
