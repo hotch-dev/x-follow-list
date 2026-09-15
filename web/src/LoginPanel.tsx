@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { createSession } from './api'
+import { storeCsrfToken } from './session'
 
 export function LoginPanel({ onAuthenticated }: { onAuthenticated: () => Promise<void> }) {
   const [login, setLogin] = useState('')
@@ -9,7 +10,7 @@ export function LoginPanel({ onAuthenticated }: { onAuthenticated: () => Promise
   const session = useMutation({
     mutationFn: () => createSession(login, password),
     onSuccess: async (result) => {
-      window.sessionStorage.setItem('x-follow-list-csrf', result.csrf_token)
+      storeCsrfToken(result.csrf_token)
       setPassword('')
       await onAuthenticated()
     },

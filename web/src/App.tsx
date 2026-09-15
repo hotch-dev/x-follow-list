@@ -9,6 +9,7 @@ import { LoginPanel } from './LoginPanel'
 import { Navigation } from './Navigation'
 import { RelationshipsPage } from './RelationshipsPage'
 import { ScansPage } from './ScansPage'
+import { getCsrfToken } from './session'
 
 export function App() {
   const [path, setPath] = useState(window.location.pathname)
@@ -57,7 +58,7 @@ export function App() {
   }
 
   const accountId = dashboard.data.accounts[0]?.id
-  const csrfToken = window.sessionStorage.getItem('x-follow-list-csrf') ?? ''
+  const csrfToken = getCsrfToken()
   let page = <Dashboard data={dashboard.data} />
   if (path === '/accounts') page = <AccountsPage csrfToken={csrfToken} />
   if (path === '/scans') page = <ScansPage csrfToken={csrfToken} />
