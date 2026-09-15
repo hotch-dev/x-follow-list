@@ -180,6 +180,15 @@ button {
   font: inherit;
 }
 
+.form-card input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #b9c5d6;
+  border-radius: 0.6rem;
+  color: inherit;
+  font: inherit;
+}
+
 button:disabled,
 .form-card select:disabled {
   cursor: not-allowed;

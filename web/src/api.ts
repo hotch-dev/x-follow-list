@@ -92,6 +92,14 @@ export class ApiError extends Error {
   }
 }
 
+export async function createSession(login: string, password: string) {
+  return request<{ csrf_token: string }>('/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login, password }),
+  })
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     credentials: 'same-origin',
