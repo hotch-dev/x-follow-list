@@ -172,6 +172,9 @@ describe('A-12 dashboard journey', () => {
       http.get('/api/v1/browser-provider-configs', () =>
         HttpResponse.json({ items: [] }),
       ),
+      http.get('/api/v1/relationships', () =>
+        HttpResponse.json({ items: [], next_cursor: null }),
+      ),
     )
     const user = userEvent.setup()
     renderApp()
@@ -184,5 +187,60 @@ describe('A-12 dashboard journey', () => {
     expect(await screen.findByRole('heading', { name: 'X 账号管理' })).toBeVisible()
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeVisible()
     expect(screen.getAllByRole('link')).toHaveLength(5)
+    await user.click(screen.getByRole('link', { name: '扫描任务' }))
+    expect(await screen.findByRole('heading', { name: '扫描任务' })).toBeVisible()
+    await user.click(screen.getByRole('link', { name: '关系结果' }))
+    expect(await screen.findByRole('heading', { name: '关系结果' })).toBeVisible()
+    await user.click(screen.getByRole('link', { name: '重点待处理' }))
+    expect(await screen.findByRole('heading', { name: '重点待处理' })).toBeVisible()
+  })
+
+  it('distinguishes an empty account list from a request failure', async () => {
+    server.use(
+      http.get('/api/v1/x-accounts', () => HttpResponse.json({ items: [] })),
+    )
+
+    renderApp()
+
+    expect(await screen.findByText('暂无监控账号，请先前往账号管理完成绑定。')).toBeVisible()
+  })
+
+  it('retries a transient dashboard error without clearing it into an empty state', async () => {
+    let attempts = 0
+    server.use(
+      http.get('/api/v1/x-accounts', () => {
+        attempts += 1
+        return attempts === 1
+          ? HttpResponse.json({ code: 'TEMPORARY_FAILURE' }, { status: 503 })
+          : HttpResponse.json({ items: [] })
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('暂时无法加载数据')
+    await user.click(screen.getByRole('button', { name: '重试' }))
+
+    expect(await screen.findByText('暂无监控账号，请先前往账号管理完成绑定。')).toBeVisible()
+  })
+
+  it('keeps invalid credentials in the login form error state', async () => {
+    server.use(
+      http.get('/api/v1/x-accounts', () =>
+        HttpResponse.json({ code: 'AUTH_REQUIRED' }, { status: 401 }),
+      ),
+      http.post('/api/v1/auth/session', () =>
+        HttpResponse.json({ code: 'AUTH_FAILED' }, { status: 401 }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(await screen.findByRole('button', { name: '重新登录' }))
+    await user.type(screen.getByRole('textbox', { name: '登录账号' }), 'wrong')
+    await user.type(screen.getByLabelText('密码'), 'wrong password')
+    await user.click(screen.getByRole('button', { name: '登录' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('账号或密码不正确')
   })
 })
