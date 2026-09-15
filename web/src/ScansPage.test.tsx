@@ -14,7 +14,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 
-function scan(status: 'QUEUED' | 'RUNNING' | 'FAILED') {
+function scan(status: 'QUEUED' | 'RUNNING' | 'FAILED' | 'SUCCESS') {
   return {
     id: 'run-1',
     x_account_id: 'account-1',
@@ -91,5 +91,81 @@ describe('A-12 manual scan journey', () => {
     const requestsAtFailure = detailRequests
     await waitFor(() => expect(detailRequests).toBe(requestsAtFailure), { timeout: 80 })
     expect(detailRequests).toBe(2)
+  })
+
+  it('generates and downloads the XLSX artifact for a successful scan', async () => {
+    let generated = false
+    server.use(
+      http.get('/api/v1/x-accounts', () =>
+        HttpResponse.json({
+          items: [{
+            id: 'account-1', x_user_id: '42', username: 'alice', display_name: 'Alice',
+            session_status: 'READY', provider_code: 'DIRECT_CHROME', profile_ref: 'profile',
+            version: 1, last_successful_scan_at: '2026-09-15T04:00:00Z',
+          }],
+        }),
+      ),
+      http.get('/api/v1/scan-runs', () =>
+        HttpResponse.json({ items: [scan('SUCCESS')], next_cursor: null }),
+      ),
+      http.post('/api/v1/scan-runs/run-1/artifacts/xlsx', () => {
+        generated = true
+        return HttpResponse.json({
+          id: 'artifact-1', status: 'READY', sha256: 'abc', byte_size: 123,
+          expires_at: '2026-10-15T04:00:00Z', deleted_at: null,
+          download_url: '/api/v1/artifacts/artifact-1/download',
+        })
+      }),
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ScansPage csrfToken="csrf-token" />
+      </QueryClientProvider>,
+    )
+
+    await user.click(await screen.findByRole('button', { name: '生成 XLSX' }))
+
+    expect(generated).toBe(true)
+    expect(await screen.findByRole('link', { name: '下载 XLSX' })).toHaveAttribute(
+      'href', '/api/v1/artifacts/artifact-1/download',
+    )
+  })
+
+  it('keeps XLSX generation failure visible without offering a stale download', async () => {
+    server.use(
+      http.get('/api/v1/x-accounts', () =>
+        HttpResponse.json({
+          items: [{
+            id: 'account-1', x_user_id: '42', username: 'alice', display_name: 'Alice',
+            session_status: 'READY', provider_code: 'DIRECT_CHROME', profile_ref: 'profile',
+            version: 1, last_successful_scan_at: '2026-09-15T04:00:00Z',
+          }],
+        }),
+      ),
+      http.get('/api/v1/scan-runs', () =>
+        HttpResponse.json({ items: [scan('SUCCESS')], next_cursor: null }),
+      ),
+      http.post('/api/v1/scan-runs/run-1/artifacts/xlsx', () =>
+        HttpResponse.json({ code: 'ARTIFACT_GENERATION_FAILED' }, { status: 500 }),
+      ),
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const user = userEvent.setup()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ScansPage csrfToken="csrf-token" />
+      </QueryClientProvider>,
+    )
+
+    await user.click(await screen.findByRole('button', { name: '生成 XLSX' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('XLSX 生成失败，请重试。')
+    expect(screen.queryByRole('link', { name: '下载 XLSX' })).not.toBeInTheDocument()
   })
 })
