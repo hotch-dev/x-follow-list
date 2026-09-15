@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Cookie, Header, Query, Request, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from x_follow_list.api.dependencies import authenticate_request
 from x_follow_list.application.auth import SESSION_COOKIE_NAME, AuthService
-from x_follow_list.application.errors import ApplicationError
+from x_follow_list.application.errors import ApplicationError, ResourceNotFoundError
 from x_follow_list.application.monitoring import MonitoringQueryService
+from x_follow_list.artifacts.xlsx import MIME_TYPE, XlsxArtifactService
+from x_follow_list.persistence.authorization import OwnedResourceRepository
 from x_follow_list.persistence.database import Database
 
 router = APIRouter(prefix="/api/v1", tags=["x-relationship-monitoring"])
@@ -100,6 +105,17 @@ class UnbindRequest(BaseModel):
 
     version: int = Field(ge=1)
     delete_history: bool = False
+
+
+class ArtifactResponse(BaseModel):
+    id: str
+    scan_run_id: str
+    status: str
+    sha256: str | None
+    byte_size: int | None
+    expires_at: datetime
+    deleted_at: datetime | None
+    download_url: str
 
 
 def _services(request: Request) -> tuple[Database, AuthService, MonitoringQueryService]:
@@ -198,6 +214,77 @@ async def get_scan(
     user = await authenticate_request(request, session_token)
     _database, _auth, service = _services(request)
     return _scan(await service.get_scan(user.user_id, run_id))
+
+
+@router.post("/scan-runs/{run_id}/artifacts/xlsx", response_model=ArtifactResponse)
+async def build_xlsx_artifact(
+    run_id: str,
+    request: Request,
+    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> ArtifactResponse:
+    user = await authenticate_request(request, session_token, csrf_token, mutation=True)
+    database, _auth, _service = _services(request)
+    async with database.session() as session:
+        await OwnedResourceRepository(session).require_scan_run(user.user_id, run_id)
+    artifact_service: XlsxArtifactService = request.app.state.xlsx_artifact_service
+    try:
+        artifact = await artifact_service.build(run_id)
+    except (ApplicationError, ResourceNotFoundError):
+        raise
+    except Exception:
+        raise ApplicationError(
+            "ARTIFACT_GENERATION_FAILED", "XLSX artifact generation failed", 500
+        ) from None
+    artifact_id = str(artifact["id"])
+    return ArtifactResponse(
+        **artifact,
+        download_url=f"/api/v1/artifacts/{artifact_id}/download",
+    )
+
+
+@router.get("/artifacts/{artifact_id}/download", response_class=FileResponse)
+async def download_artifact(
+    artifact_id: str,
+    request: Request,
+    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
+) -> FileResponse:
+    user = await authenticate_request(request, session_token)
+    database, _auth, _service = _services(request)
+    async with database.session() as session:
+        artifact = await OwnedResourceRepository(session).require_artifact(
+            user.user_id, artifact_id
+        )
+    expires_at = artifact["expires_at"]
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    if (
+        artifact["kind"] != "XLSX"
+        or artifact["status"] != "READY"
+        or artifact["deleted_at"] is not None
+        or expires_at <= datetime.now(expires_at.tzinfo)
+    ):
+        raise ResourceNotFoundError
+    path, storage_root, exists = await asyncio.to_thread(
+        _resolve_artifact_path,
+        str(artifact["storage_path"]),
+        request.app.state.settings.data_dir,
+    )
+    if storage_root not in path.parents or not exists:
+        raise ResourceNotFoundError
+    response = FileResponse(
+        path,
+        media_type=MIME_TYPE,
+        filename=f"x-follow-list-{artifact['scan_run_id']}.xlsx",
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+def _resolve_artifact_path(raw_path: str, data_dir: Path) -> tuple[Path, Path, bool]:
+    path = Path(raw_path).resolve()
+    storage_root = (data_dir / "artifacts").resolve()
+    return path, storage_root, path.is_file()
 
 
 @router.get("/relationships", response_model=RelationshipListResponse)

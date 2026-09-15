@@ -17,6 +17,7 @@ from x_follow_list.application.binding import BrowserBindingService
 from x_follow_list.application.errors import ApplicationError
 from x_follow_list.application.monitoring import MonitoringQueryService
 from x_follow_list.application.provider_configs import ProviderConfigService
+from x_follow_list.artifacts.xlsx import XlsxArtifactService
 from x_follow_list.browser.adspower import AdsPowerProvider
 from x_follow_list.browser.contracts import BrowserProvider
 from x_follow_list.browser.direct_chrome import DirectChromeProvider
@@ -55,6 +56,9 @@ def create_app(
     app.state.browser_provider_registry = registry
     app.state.monitoring_query_service = MonitoringQueryService(database, registry)
     app.state.provider_config_service = ProviderConfigService(database, registry)
+    app.state.xlsx_artifact_service = XlsxArtifactService(
+        database, runtime_settings.data_dir / "artifacts"
+    )
 
     @app.middleware("http")
     async def correlate_request(

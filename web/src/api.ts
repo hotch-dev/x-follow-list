@@ -29,6 +29,16 @@ export interface ScanRun {
   last_successful_scan_at: string | null
 }
 
+export interface XlsxArtifact {
+  id: string
+  status: string
+  sha256: string | null
+  byte_size: number | null
+  expires_at: string
+  deleted_at: string | null
+  download_url: string
+}
+
 export interface RelationshipEvent {
   id: string
   x_account_id: string
@@ -212,6 +222,13 @@ export async function createScan(accountId: string, csrfToken: string) {
       'X-CSRF-Token': csrfToken,
     },
   })
+}
+
+export async function createXlsxArtifact(runId: string, csrfToken: string) {
+  return request<XlsxArtifact>(
+    `/scan-runs/${encodeURIComponent(runId)}/artifacts/xlsx`,
+    { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } },
+  )
 }
 
 export async function listRelationships(

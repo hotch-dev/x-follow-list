@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 from tracemalloc import get_traced_memory, start, stop
 
@@ -18,7 +19,7 @@ def test_write_only_workbook_keeps_fifty_thousand_rows_below_memory_budget(
 ) -> None:
     target = tmp_path / "large.xlsx"
 
-    def rows():
+    def rows() -> Iterator[tuple[str, str | None, str | None]]:
         yield ("x_user_id", "username", "display_name")
         for index in range(50_000):
             yield (str(index), f"user-{index}", None)
@@ -29,6 +30,6 @@ def test_write_only_workbook_keeps_fifty_thousand_rows_below_memory_budget(
     stop()
 
     workbook = load_workbook(target, read_only=True)
-    assert workbook["Followers"].max_row == 50_001
+    assert sum(1 for _row in workbook["Followers"].iter_rows(values_only=True)) == 50_001
     workbook.close()
     assert peak < 128 * 1024 * 1024

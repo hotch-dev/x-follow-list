@@ -1,7 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { createScan, getScan, listAccounts, listScans, type ScanRun } from './api'
+import {
+  createScan,
+  createXlsxArtifact,
+  getScan,
+  listAccounts,
+  listScans,
+  type ScanRun,
+} from './api'
 import { formatUtc } from './format'
 import { PageHeader } from './PageHeader'
 import { nextPollDelay } from './polling'
@@ -35,6 +42,9 @@ export function ScansPage({
     },
   })
   const run = activeRun.data ?? create.data ?? history.data?.[0]
+  const artifact = useMutation({
+    mutationFn: () => createXlsxArtifact(run!.id, csrfToken),
+  })
 
   return (
     <section className="dashboard" aria-labelledby="scans-title">
@@ -63,6 +73,21 @@ export function ScansPage({
               <p>数据仍来自 {formatUtc(run.last_successful_scan_at)}</p>
             </div>
           )}
+          {run.status === 'SUCCESS' && (
+            <div className="toolbar">
+              <button
+                type="button"
+                disabled={artifact.isPending}
+                onClick={() => artifact.mutate()}
+              >
+                {artifact.isPending ? '正在生成…' : '生成 XLSX'}
+              </button>
+              {artifact.data?.status === 'READY' && (
+                <a href={artifact.data.download_url}>下载 XLSX</a>
+              )}
+            </div>
+          )}
+          {artifact.isError && <p role="alert">XLSX 生成失败，请重试。</p>}
         </article>
       )}
     </section>

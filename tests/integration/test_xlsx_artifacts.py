@@ -9,6 +9,7 @@ import pytest
 from alembic import command
 from fastapi import FastAPI
 from openpyxl import load_workbook
+from pydantic import SecretStr
 from sqlalchemy import text
 
 from x_follow_list.api.app import create_app
@@ -23,7 +24,7 @@ async def prepared_app(tmp_path: Path) -> FastAPI:
     settings = Settings(
         environment=RuntimeEnvironment.TEST,
         data_dir=tmp_path,
-        bootstrap_token="one-time-bootstrap-token",
+        bootstrap_token=SecretStr("one-time-bootstrap-token"),
         app_origin=ORIGIN,
     )
     await asyncio.to_thread(command.upgrade, alembic_config(settings), "head")
@@ -179,7 +180,10 @@ async def test_builds_six_snapshot_pinned_sheets_and_downloads_with_safe_headers
         "Followers",
         "Following",
     ]
-    summary = dict(workbook["Summary"].iter_rows(min_row=2, values_only=True))
+    summary: dict[object, object] = {
+        row[0]: row[1]
+        for row in workbook["Summary"].iter_rows(min_row=2, values_only=True)
+    }
     assert summary["scan_run_id"] == "run"
     assert summary["snapshot_id"] == "snapshot"
     assert summary["captured_at_utc"] == "2026-09-15T04:00:00Z"
@@ -222,7 +226,8 @@ async def test_membership_download_authorization_hides_foreign_and_deleted_artif
                 await session.execute(
                     text(
                         "INSERT INTO auth_sessions "
-                        "(id,user_id,token_hash,csrf_token_hash,created_at,expires_at,last_seen_at) "
+                        "(id,user_id,token_hash,csrf_token_hash,created_at,expires_at,"
+                        "last_seen_at) "
                         "VALUES (:id,:user,:token,:csrf,:now,:expires,:now)"
                     ),
                     {
@@ -293,5 +298,5 @@ async def test_failed_publish_leaves_no_partial_file_and_can_be_rebuilt(
 
     rebuilt = await service.build("run")
     assert rebuilt["status"] == "READY"
-    assert Path(str(rebuilt["storage_path"])).is_file()
+    assert await asyncio.to_thread(Path(str(rebuilt["storage_path"])).is_file)
     await app.state.database.dispose()
