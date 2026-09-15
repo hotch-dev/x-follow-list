@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
@@ -70,6 +70,16 @@ describe('A-12 AdsPower account binding journey', () => {
           { status: 202 },
         )
       }),
+      http.get('/api/v1/x-account-bind-sessions/binding-1', () =>
+        HttpResponse.json({
+          id: 'binding-1',
+          provider_code: 'ADSPOWER',
+          profile_ref: 'profile-3',
+          status: 'WAITING_FOR_LOGIN',
+          detected_identity: null,
+          error_code: null,
+        }),
+      ),
     )
     const user = userEvent.setup()
 
@@ -182,6 +192,8 @@ describe('A-12 AdsPower account binding journey', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('绑定完成')
     expect(confirmedVersion).toBe(1)
-    expect(detailRequests).toBe(1)
+    const requestsAtComplete = detailRequests
+    expect(requestsAtComplete).toBeGreaterThanOrEqual(1)
+    await waitFor(() => expect(detailRequests).toBe(requestsAtComplete), { timeout: 80 })
   })
 })

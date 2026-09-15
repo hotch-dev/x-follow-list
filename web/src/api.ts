@@ -75,6 +75,11 @@ export interface BindingSession {
   provider_code: string
   profile_ref: string
   status: string
+  detected_identity: {
+    x_user_id: string
+    username: string | null
+    display_name: string | null
+  } | null
   error_code: string | null
 }
 
@@ -143,6 +148,19 @@ export async function createBinding(
       },
       csrfToken,
     ),
+  )
+}
+
+export async function getBinding(bindingId: string) {
+  return request<BindingSession>(
+    `/x-account-bind-sessions/${encodeURIComponent(bindingId)}`,
+  )
+}
+
+export async function confirmBinding(bindingId: string, csrfToken: string) {
+  return request<BindingSession>(
+    `/x-account-bind-sessions/${encodeURIComponent(bindingId)}/confirm`,
+    jsonMutation({}, csrfToken),
   )
 }
 

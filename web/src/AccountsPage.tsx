@@ -1,12 +1,28 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { createBinding, listProfiles, listProviderConfigs } from './api'
+import {
+  confirmBinding,
+  createBinding,
+  getBinding,
+  listProfiles,
+  listProviderConfigs,
+  type BindingSession,
+} from './api'
 import { PageHeader } from './PageHeader'
 
-export function AccountsPage({ csrfToken }: { csrfToken: string }) {
+const terminalStatuses = new Set(['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED'])
+
+export function AccountsPage({
+  csrfToken,
+  pollIntervalMs = 2000,
+}: {
+  csrfToken: string
+  pollIntervalMs?: number
+}) {
   const [configId, setConfigId] = useState('')
   const [profileRef, setProfileRef] = useState('')
+  const [finalSession, setFinalSession] = useState<BindingSession | null>(null)
   const configs = useQuery({
     queryKey: ['provider-configs'],
     queryFn: listProviderConfigs,
@@ -19,6 +35,21 @@ export function AccountsPage({ csrfToken }: { csrfToken: string }) {
   const binding = useMutation({
     mutationFn: () => createBinding(configId, profileRef, csrfToken),
   })
+  const bindingId = binding.data?.id
+  const detail = useQuery({
+    queryKey: ['binding', bindingId],
+    queryFn: () => getBinding(bindingId!),
+    enabled: Boolean(bindingId) && finalSession === null,
+    refetchInterval: (query) => {
+      const session = query.state.data as BindingSession | undefined
+      return session && terminalStatuses.has(session.status) ? false : pollIntervalMs
+    },
+  })
+  const confirm = useMutation({
+    mutationFn: (session: BindingSession) => confirmBinding(session.id, csrfToken),
+    onSuccess: setFinalSession,
+  })
+  const currentSession = finalSession ?? detail.data ?? binding.data
   const selectedProfile = profiles.data?.find((item) => item.profile_ref === profileRef)
 
   return (
@@ -67,11 +98,24 @@ export function AccountsPage({ csrfToken }: { csrfToken: string }) {
           {binding.isPending ? '正在创建绑定…' : '开始绑定'}
         </button>
         {binding.isError && <p role="alert">无法启动绑定，请检查 Provider 配置后重试。</p>}
-        {binding.data?.status === 'WAITING_FOR_LOGIN' && (
+        {currentSession?.status === 'WAITING_FOR_LOGIN' && (
           <p role="status">
             等待在{selectedProfile?.display_name ?? '所选环境'} 中手工登录 X
           </p>
         )}
+        {currentSession?.status === 'AWAITING_CONFIRMATION' && currentSession.detected_identity && (
+          <section className="identity-confirmation" aria-label="检测到的 X 账号">
+            <h2>
+              {currentSession.detected_identity.display_name ??
+                `@${currentSession.detected_identity.username ?? currentSession.detected_identity.x_user_id}`}
+            </h2>
+            <p>@{currentSession.detected_identity.username ?? currentSession.detected_identity.x_user_id}</p>
+            <button type="button" onClick={() => confirm.mutate(currentSession)}>
+              确认绑定此账号
+            </button>
+          </section>
+        )}
+        {currentSession?.status === 'COMPLETED' && <p role="status">绑定完成</p>}
       </form>
     </section>
   )
