@@ -1,20 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState, type MouseEvent } from 'react'
+import { useEffect, useState } from 'react'
 
 import { AccountsPage } from './AccountsPage'
 import { ActionItemsPage } from './ActionItemsPage'
 import { ApiError, loadDashboard } from './api'
 import { Dashboard } from './Dashboard'
+import { Navigation } from './Navigation'
 import { RelationshipsPage } from './RelationshipsPage'
 import { ScansPage } from './ScansPage'
-
-const navigation = [
-  { href: '/', label: '总览' },
-  { href: '/accounts', label: 'X 账号' },
-  { href: '/scans', label: '扫描任务' },
-  { href: '/relationships', label: '关系结果' },
-  { href: '/action-items', label: '重点待处理' },
-]
 
 export function App() {
   const [path, setPath] = useState(window.location.pathname)
@@ -46,14 +39,6 @@ export function App() {
 
   const accountId = dashboard.data.accounts[0]?.id
   const csrfToken = window.sessionStorage.getItem('x-follow-list-csrf') ?? ''
-  const navigate = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-      return
-    }
-    event.preventDefault()
-    window.history.pushState({}, '', href)
-    setPath(href)
-  }
   let page = <Dashboard data={dashboard.data} />
   if (path === '/accounts') page = <AccountsPage csrfToken={csrfToken} />
   if (path === '/scans') page = <ScansPage csrfToken={csrfToken} />
@@ -66,21 +51,7 @@ export function App() {
 
   return (
     <>
-      <header className="site-header">
-        <span className="brand">X Follow List</span>
-        <nav aria-label="主导航">
-          {navigation.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              aria-current={path === item.href ? 'page' : undefined}
-              onClick={(event) => navigate(event, item.href)}
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
-      </header>
+      <Navigation path={path} onNavigate={setPath} />
       <main className="app-shell">{page}</main>
     </>
   )
