@@ -30,8 +30,26 @@ export interface ScanRun {
 
 export interface RelationshipEvent {
   id: string
+  x_account_id: string
+  scan_run_id: string
+  subject_x_user_id: string
+  username: string | null
+  display_name: string | null
+  category: string
   event_type: string
   status: string
+  version: number
+  created_at: string
+  acknowledged_at: string | null
+}
+
+export interface Relationship {
+  x_user_id: string
+  username: string | null
+  display_name: string | null
+  state: string
+  non_followback_streak: number
+  snapshot_id: string
 }
 
 interface ItemList<T> {
@@ -138,6 +156,45 @@ export async function createScan(accountId: string, csrfToken: string) {
       'X-CSRF-Token': csrfToken,
     },
   })
+}
+
+export async function listRelationships(
+  accountId: string,
+  filters: { state: string; search: string },
+) {
+  const query = new URLSearchParams({ x_account_id: accountId, limit: '50' })
+  if (filters.state) query.set('state', filters.state)
+  if (filters.search) query.set('search', filters.search)
+  return (await request<ItemList<Relationship>>(`/relationships?${query}`)).items
+}
+
+export async function listActionItems(accountId: string) {
+  const query = new URLSearchParams({
+    x_account_id: accountId,
+    category: 'ACTION_ITEM',
+    event_type: 'UNFOLLOWED_ME_AFTER_MUTUAL',
+    status: 'NEW',
+    limit: '50',
+  })
+  return (await request<ItemList<RelationshipEvent>>(`/relationship-events?${query}`)).items
+}
+
+export async function acknowledgeEvent(
+  eventId: string,
+  version: number,
+  csrfToken: string,
+) {
+  return request<RelationshipEvent>(
+    `/relationship-events/${encodeURIComponent(eventId)}/acknowledge`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify({ version }),
+    },
+  )
 }
 
 export async function loadDashboard() {

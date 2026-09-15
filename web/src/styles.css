@@ -166,6 +166,40 @@ button:disabled,
   background: #fff7f5;
 }
 
+.filter-bar {
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 12rem) auto minmax(10rem, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.filter-bar input,
+.filter-bar select {
+  padding: 0.65rem;
+  border: 1px solid #b9c5d6;
+  border-radius: 0.55rem;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+
+.result-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.action-item {
+  max-width: 36rem;
+}
+
+@media (max-width: 44rem) {
+  .filter-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .eyebrow {
   margin: 0 0 0.75rem;
   color: #536684;
