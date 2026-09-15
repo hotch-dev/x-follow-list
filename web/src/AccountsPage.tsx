@@ -9,6 +9,7 @@ import {
   listProviderConfigs,
   type BindingSession,
 } from './api'
+import { BindingStatus } from './BindingStatus'
 import { PageHeader } from './PageHeader'
 
 const terminalStatuses = new Set(['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED'])
@@ -98,24 +99,12 @@ export function AccountsPage({
           {binding.isPending ? '正在创建绑定…' : '开始绑定'}
         </button>
         {binding.isError && <p role="alert">无法启动绑定，请检查 Provider 配置后重试。</p>}
-        {currentSession?.status === 'WAITING_FOR_LOGIN' && (
-          <p role="status">
-            等待在{selectedProfile?.display_name ?? '所选环境'} 中手工登录 X
-          </p>
-        )}
-        {currentSession?.status === 'AWAITING_CONFIRMATION' && currentSession.detected_identity && (
-          <section className="identity-confirmation" aria-label="检测到的 X 账号">
-            <h2>
-              {currentSession.detected_identity.display_name ??
-                `@${currentSession.detected_identity.username ?? currentSession.detected_identity.x_user_id}`}
-            </h2>
-            <p>@{currentSession.detected_identity.username ?? currentSession.detected_identity.x_user_id}</p>
-            <button type="button" onClick={() => confirm.mutate(currentSession)}>
-              确认绑定此账号
-            </button>
-          </section>
-        )}
-        {currentSession?.status === 'COMPLETED' && <p role="status">绑定完成</p>}
+        <BindingStatus
+          session={currentSession}
+          profileName={selectedProfile?.display_name ?? '所选环境'}
+          confirming={confirm.isPending}
+          onConfirm={(session) => confirm.mutate(session)}
+        />
       </form>
     </section>
   )
