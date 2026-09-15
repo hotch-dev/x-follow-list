@@ -105,6 +105,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T
 }
 
+function jsonMutation(body: object, csrfToken: string): RequestInit {
+  return {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify(body),
+  }
+}
+
 export async function listProviderConfigs() {
   return (await request<ItemList<ProviderConfigSummary>>('/browser-provider-configs')).items
 }
@@ -122,18 +133,17 @@ export async function createBinding(
   profileRef: string,
   csrfToken: string,
 ) {
-  return request<BindingSession>('/x-account-bind-sessions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken,
-    },
-    body: JSON.stringify({
+  return request<BindingSession>(
+    '/x-account-bind-sessions',
+    jsonMutation(
+      {
       provider_config_id: providerConfigId,
       profile_ref: profileRef,
       x_account_id: null,
-    }),
-  })
+      },
+      csrfToken,
+    ),
+  )
 }
 
 export async function listAccounts() {
@@ -186,14 +196,7 @@ export async function acknowledgeEvent(
 ) {
   return request<RelationshipEvent>(
     `/relationship-events/${encodeURIComponent(eventId)}/acknowledge`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': csrfToken,
-      },
-      body: JSON.stringify({ version }),
-    },
+    jsonMutation({ version }, csrfToken),
   )
 }
 
