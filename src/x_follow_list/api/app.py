@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from x_follow_list.api.artifacts import router as artifacts_router
 from x_follow_list.api.auth import router as auth_router
 from x_follow_list.api.binding import router as binding_router
 from x_follow_list.api.monitoring import router as monitoring_router
@@ -142,6 +143,7 @@ def create_app(
         )
 
     app.include_router(auth_router)
+    app.include_router(artifacts_router)
     app.include_router(binding_router)
     app.include_router(monitoring_router)
     app.include_router(providers_router)

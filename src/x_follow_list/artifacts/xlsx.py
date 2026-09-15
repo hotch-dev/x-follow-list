@@ -46,15 +46,7 @@ def write_xlsx_stream(
     target: Path,
     sheets: Iterable[tuple[str, Iterable[Sequence[object]]]],
 ) -> int:
-    workbook = Workbook(write_only=True)
-    row_count = 0
-    for name, rows in sheets:
-        worksheet = workbook.create_sheet(name)
-        for row in rows:
-            worksheet.append([_safe_cell(value) for value in row])
-            row_count += 1
-    workbook.save(target)
-    return row_count
+    return _write_workbook(target, sheets)
 
 
 class XlsxArtifactService:
@@ -75,7 +67,7 @@ class XlsxArtifactService:
         temporary_path = final_path.with_name(f".{final_path.stem}.{uuid4().hex}.tmp")
         try:
             sheets = await self._sheet_rows(source)
-            _write_with_failure_hook(temporary_path, sheets, fail_after_rows)
+            _write_workbook(temporary_path, sheets, fail_after_rows)
             digest, byte_size = _hash_file(temporary_path)
             os.replace(temporary_path, final_path)
             ready = await self._mark_ready(
@@ -298,11 +290,11 @@ class XlsxArtifactService:
             await session.commit()
 
 
-def _write_with_failure_hook(
+def _write_workbook(
     target: Path,
     sheets: Iterable[tuple[str, Iterable[Sequence[object]]]],
-    fail_after_rows: int | None,
-) -> None:
+    fail_after_rows: int | None = None,
+) -> int:
     workbook = Workbook(write_only=True)
     row_count = 0
     try:
@@ -315,6 +307,7 @@ def _write_with_failure_hook(
                     worksheet.close()
                     raise OSError("injected XLSX write failure")
         workbook.save(target)
+        return row_count
     except BaseException:
         workbook.close()
         raise
