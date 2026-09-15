@@ -15,6 +15,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
   server.resetHandlers()
   window.history.replaceState({}, '', '/')
+  window.sessionStorage.clear()
 })
 afterAll(() => server.close())
 
@@ -111,20 +112,57 @@ describe('A-12 dashboard journey', () => {
     ).toHaveAttribute('href', '/action-items')
   })
 
-  it('shows a session-expired state instead of an empty dashboard', async () => {
+  it('recovers an expired session through login instead of showing an empty dashboard', async () => {
+    let authenticated = false
+    const [, scans, events] = dashboardHandlers()
     server.use(
       http.get('/api/v1/x-accounts', () =>
-        HttpResponse.json(
-          { code: 'AUTH_REQUIRED', message: 'Authentication required' },
-          { status: 401 },
-        ),
+        authenticated
+          ? HttpResponse.json({
+              items: [
+                {
+                  id: 'account-1',
+                  x_user_id: '42',
+                  username: 'alice',
+                  display_name: 'Alice',
+                  session_status: 'READY',
+                  provider_code: 'ADSPOWER',
+                  profile_ref: 'profile-3',
+                  last_successful_scan_at: '2026-09-14T10:30:00Z',
+                },
+              ],
+            })
+          : HttpResponse.json(
+              { code: 'AUTH_REQUIRED', message: 'Authentication required' },
+              { status: 401 },
+            ),
       ),
+      scans,
+      events,
+      http.post('/api/v1/auth/session', async ({ request }) => {
+        expect(await request.json()).toEqual({
+          login: 'owner@example.test',
+          password: 'a sufficiently long password',
+        })
+        authenticated = true
+        return HttpResponse.json({ csrf_token: 'new-csrf-token' })
+      }),
     )
+    const user = userEvent.setup()
 
     renderApp()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('登录已过期')
-    expect(screen.getByRole('button', { name: '重新登录' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '重新登录' }))
+    await user.type(screen.getByRole('textbox', { name: '登录账号' }), 'owner@example.test')
+    await user.type(
+      screen.getByLabelText('密码'),
+      'a sufficiently long password',
+    )
+    await user.click(screen.getByRole('button', { name: '登录' }))
+
+    expect(await screen.findByRole('heading', { name: '总览' })).toBeVisible()
+    expect(window.sessionStorage.getItem('x-follow-list-csrf')).toBe('new-csrf-token')
     expect(screen.queryByText('暂无监控账号')).not.toBeInTheDocument()
   })
 
