@@ -8,6 +8,15 @@ from pytest import MonkeyPatch
 from x_follow_list.worker.runtime import WorkerRuntime, main
 
 
+class FakeWorkerLoop:
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+
+    async def run(self, stop: asyncio.Event) -> None:
+        self.started.set()
+        await stop.wait()
+
+
 @pytest.mark.asyncio
 async def test_worker_can_be_stopped_safely() -> None:
     runtime = WorkerRuntime()
@@ -22,6 +31,19 @@ async def test_worker_can_be_stopped_safely() -> None:
 
     assert runtime.stop_requested is True
     assert worker_task.done() is True
+
+
+@pytest.mark.asyncio
+async def test_worker_runtime_delegates_to_configured_task_loop() -> None:
+    loop = FakeWorkerLoop()
+    runtime = WorkerRuntime(loop)
+
+    worker_task = asyncio.create_task(runtime.run())
+    await asyncio.wait_for(loop.started.wait(), timeout=0.1)
+    runtime.request_stop()
+    await asyncio.wait_for(worker_task, timeout=0.1)
+
+    assert runtime.stop_requested is True
 
 
 def test_worker_entrypoint_starts_async_runtime(monkeypatch: MonkeyPatch) -> None:

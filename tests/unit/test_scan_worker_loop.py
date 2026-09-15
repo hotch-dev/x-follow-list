@@ -23,6 +23,7 @@ class FakeCoordinator:
         self.lose_heartbeat = lose_heartbeat
         self.lease_conflict = lease_conflict
         self.unleased_failure: tuple[str, str] | None = None
+        self.failure: tuple[str, str] | None = None
         self.two_heartbeats = asyncio.Event()
 
     async def recover_expired_runs(self) -> list[str]:
@@ -45,6 +46,16 @@ class FakeCoordinator:
     ) -> None:
         assert claim.run_id == "run"
         self.unleased_failure = (error_code, error_summary)
+
+    async def finish_failed(
+        self,
+        claim: ScanClaim,
+        leases: tuple[ResourceLease, ...],
+        error_code: str,
+        error_summary: str,
+    ) -> None:
+        assert claim.run_id == "run" and leases == self.leases
+        self.failure = (error_code, error_summary)
 
     async def heartbeat(
         self, claim: ScanClaim, leases: tuple[ResourceLease, ...]
@@ -107,3 +118,20 @@ async def test_worker_safely_closes_claim_when_resources_are_busy() -> None:
         "RESOURCE_BUSY",
         "required browser resource is already in use",
     )
+
+
+@pytest.mark.asyncio
+async def test_worker_records_sanitized_handler_failure_and_remains_available() -> None:
+    coordinator = FakeCoordinator()
+
+    class UnsafeFailure(RuntimeError):
+        code = "unsafe/code"
+
+    async def fail(_claim: ScanClaim, _leases: tuple[ResourceLease, ...]) -> None:
+        raise UnsafeFailure("secret diagnostic must not be persisted")
+
+    worker = ScanWorker(coordinator, "worker", fail)
+
+    assert await worker.run_once() is True
+    assert coordinator.failure == ("SCAN_FAILED", "scan execution failed")
+    assert await worker.run_once() is False
