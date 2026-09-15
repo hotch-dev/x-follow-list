@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
@@ -11,7 +12,10 @@ const server = setupServer(
 )
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-afterEach(() => server.resetHandlers())
+afterEach(() => {
+  server.resetHandlers()
+  window.history.replaceState({}, '', '/')
+})
 afterAll(() => server.close())
 
 function renderApp() {
@@ -122,5 +126,25 @@ describe('A-12 dashboard journey', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('登录已过期')
     expect(screen.getByRole('button', { name: '重新登录' })).toBeVisible()
     expect(screen.queryByText('暂无监控账号')).not.toBeInTheDocument()
+  })
+
+  it('provides keyboard-accessible navigation across the five admin pages', async () => {
+    server.use(
+      ...dashboardHandlers(),
+      http.get('/api/v1/browser-provider-configs', () =>
+        HttpResponse.json({ items: [] }),
+      ),
+    )
+    const user = userEvent.setup()
+    renderApp()
+
+    const accountsLink = await screen.findByRole('link', { name: 'X 账号' })
+    accountsLink.focus()
+    expect(accountsLink).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByRole('heading', { name: 'X 账号管理' })).toBeVisible()
+    expect(screen.getByRole('navigation', { name: '主导航' })).toBeVisible()
+    expect(screen.getAllByRole('link')).toHaveLength(5)
   })
 })
