@@ -5,7 +5,8 @@ import { HttpResponse, http } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
-import { nextPollDelay, ScansPage } from './ScansPage'
+import { nextPollDelay } from './polling'
+import { ScansPage } from './ScansPage'
 
 const server = setupServer()
 
