@@ -50,9 +50,7 @@ async def _run_worker(settings: Settings) -> None:
     handler = ConfiguredScanJob(
         database,
         registry,
-        lambda profile_url: RelationshipScanJob(
-            database, coordinator, artifacts, profile_url
-        ),
+        lambda profile_url: RelationshipScanJob(database, artifacts, profile_url),
     )
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     runtime = WorkerRuntime(ScanWorker(coordinator, worker_id, handler))

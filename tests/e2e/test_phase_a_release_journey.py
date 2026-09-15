@@ -91,7 +91,6 @@ async def test_direct_chrome_completes_scan_diff_event_and_xlsx_journey(
         )
         relationship_scan = RelationshipScanJob(
             database,
-            coordinator,
             artifacts,
             f"{fixture_origin}/profile?scenario={scenario}",
         )
