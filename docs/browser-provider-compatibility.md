@@ -29,7 +29,7 @@ AdsPower 3.4.1 是 V2 browser start 官方文档列出的最低应用版本。A-
 
 ## 发布前真实 AdsPower 冒烟
 
-2026-09-15 在开发机探测 `http://127.0.0.1:50325/status`，返回 HTTP 200、`code=0`，真实 AdsPower Local API 已在线。当前进程和用户级环境没有 `ADSPOWER_API_TOKEN`，profile list 的无效凭据探测返回 `API Key mismatch`；因此用户指定的“环境 3”尚未被列出或启动。以下验证项必须在通过 `env://ADSPOWER_API_TOKEN` 提供有效 Local API 凭据后执行，才能将真实 AdsPower 状态改为通过：
+2026-09-15 在开发机探测 `http://127.0.0.1:50325/status`，返回 HTTP 200、`code=0`，真实 AdsPower Local API 已在线。用户级 `ADSPOWER_API_TOKEN` 已配置且无首尾空白或引号；受控 profile list 请求返回 `code=-1`、`This feature is only available in paid subscriptions.`。因此当前账号缺少 Local API 订阅授权，用户指定的“环境 3”尚未被列出或启动。以下验证项必须在 AdsPower 账号开通 Local API 权限后执行，才能将真实 AdsPower 状态改为通过：
 
 1. 列出并选择已有测试 profile，不创建或修改 profile。
 2. 对原本未运行的 profile：start → CDP → 本地模拟页采集 → detach → stop。

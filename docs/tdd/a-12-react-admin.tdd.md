@@ -67,4 +67,4 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 
 ## 5. 真实 AdsPower 发布验证
 
-真实 AdsPower `/status` 已在线，但有效 `ADSPOWER_API_TOKEN` 尚未通过环境 secret reference 提供，因此“环境 3”的真实本地模拟页冒烟没有被伪造为通过。该发布前验证状态和后续步骤记录在 [A-10 证据](./a-10-adspower-provider.tdd.md) 与 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。
+真实 AdsPower `/status` 已在线，`ADSPOWER_API_TOKEN` 也已通过环境 secret reference 提供；但 profile list 返回该功能仅对付费订阅开放，因此“环境 3”的真实本地模拟页冒烟没有被伪造为通过。该发布前验证状态和后续步骤记录在 [A-10 证据](./a-10-adspower-provider.tdd.md) 与 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。

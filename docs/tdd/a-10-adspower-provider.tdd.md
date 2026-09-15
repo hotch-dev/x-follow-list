@@ -69,7 +69,7 @@ pwsh -File .\scripts\check.ps1 -NodePath C:\Users\15485\.cache\codex-runtimes\co
 
 ## 6. 真实 AdsPower 冒烟状态
 
-2026-09-15 复验开发机 `http://127.0.0.1:50325/status` 返回 HTTP 200、`code=0`，确认真实 AdsPower Local API 已启动。但当前进程和用户级环境均没有 `ADSPOWER_API_TOKEN`；不带有效 token 的 profile list 返回 `API Key mismatch`，因此不能安全列出用户指定的“环境 3”，也不能执行 start/attach/collect/detach/stop。没有绕过认证或伪造通过；真实 AdsPower + 本地模拟 X 页冒烟仍是发布前验证项，待通过 `env://ADSPOWER_API_TOKEN` 提供有效凭据后执行，步骤和版本记录口径见 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。
+2026-09-15 复验开发机 `http://127.0.0.1:50325/status` 返回 HTTP 200、`code=0`，确认真实 AdsPower Local API 已启动。用户随后通过 `env://ADSPOWER_API_TOKEN` 配置了格式有效的 API Key；受控 profile list 请求到达 AdsPower 后返回 `code=-1`、`This feature is only available in paid subscriptions.`。因此当前阻塞点是 AdsPower 账号缺少 Local API 订阅授权，仍不能安全列出用户指定的“环境 3”或执行 start/attach/collect/detach/stop。没有绕过授权或伪造通过；真实 AdsPower + 本地模拟 X 页冒烟仍是发布前外部环境验证项，待开通 Local API 权限后执行，步骤和版本记录口径见 [Browser Provider 兼容性矩阵](../browser-provider-compatibility.md)。
 
 ## 7. Git 检查点
 
