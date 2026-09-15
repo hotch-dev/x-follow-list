@@ -37,7 +37,7 @@ class MonitoringQueryService:
                 await session.execute(
                     text(
                         "SELECT a.id,a.x_user_id,a.username,a.display_name,a.status,"
-                        "p.provider_code,a.profile_ref,a.last_successful_scan_at "
+                        "p.provider_code,a.profile_ref,a.version,a.last_successful_scan_at "
                         "FROM x_account_memberships m "
                         "JOIN x_accounts a ON a.id=m.x_account_id "
                         "JOIN browser_provider_configs p ON p.id=a.provider_config_id "

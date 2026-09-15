@@ -6,6 +6,7 @@ export interface Account {
   session_status: string
   provider_code: string
   profile_ref: string
+  version: number
   last_successful_scan_at: string | null
 }
 
@@ -115,6 +116,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       typeof payload.code === 'string' ? payload.code : 'REQUEST_FAILED',
     )
   }
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 
@@ -159,6 +161,13 @@ export async function createBinding(
   )
 }
 
+export async function createRevalidation(accountId: string, csrfToken: string) {
+  return request<BindingSession>(
+    '/x-account-bind-sessions',
+    jsonMutation({ x_account_id: accountId }, csrfToken),
+  )
+}
+
 export async function getBinding(bindingId: string) {
   return request<BindingSession>(
     `/x-account-bind-sessions/${encodeURIComponent(bindingId)}`,
@@ -174,6 +183,17 @@ export async function confirmBinding(bindingId: string, csrfToken: string) {
 
 export async function listAccounts() {
   return (await request<ItemList<Account>>('/x-accounts')).items
+}
+
+export async function unbindAccount(account: Account, csrfToken: string) {
+  return request<void>(`/x-accounts/${encodeURIComponent(account.id)}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify({ version: account.version, delete_history: false }),
+  })
 }
 
 export async function listScans() {

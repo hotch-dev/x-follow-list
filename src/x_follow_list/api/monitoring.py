@@ -23,6 +23,7 @@ class AccountResponse(BaseModel):
     session_status: str
     provider_code: str
     profile_ref: str
+    version: int
     last_successful_scan_at: datetime | None
 
 
@@ -146,6 +147,7 @@ async def list_accounts(
                 session_status=str(row["status"]),
                 provider_code=str(row["provider_code"]),
                 profile_ref=str(row["profile_ref"]),
+                version=int(row["version"]),
                 last_successful_scan_at=row["last_successful_scan_at"],
             )
             for row in rows

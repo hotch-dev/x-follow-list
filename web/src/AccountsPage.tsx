@@ -1,12 +1,16 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import {
   confirmBinding,
   createBinding,
+  createRevalidation,
   getBinding,
+  listAccounts,
   listProfiles,
   listProviderConfigs,
+  unbindAccount,
+  type Account,
   type BindingSession,
 } from './api'
 import { BindingStatus } from './BindingStatus'
@@ -24,6 +28,12 @@ export function AccountsPage({
   const [configId, setConfigId] = useState('')
   const [profileRef, setProfileRef] = useState('')
   const [finalSession, setFinalSession] = useState<BindingSession | null>(null)
+  const [pendingAction, setPendingAction] = useState<{
+    kind: 'revalidate' | 'unbind'
+    account: Account
+  } | null>(null)
+  const queryClient = useQueryClient()
+  const accounts = useQuery({ queryKey: ['accounts'], queryFn: listAccounts })
   const configs = useQuery({
     queryKey: ['provider-configs'],
     queryFn: listProviderConfigs,
@@ -36,7 +46,18 @@ export function AccountsPage({
   const binding = useMutation({
     mutationFn: () => createBinding(configId, profileRef, csrfToken),
   })
-  const bindingId = binding.data?.id
+  const revalidation = useMutation({
+    mutationFn: (account: Account) => createRevalidation(account.id, csrfToken),
+  })
+  const unbind = useMutation({
+    mutationFn: (account: Account) => unbindAccount(account, csrfToken),
+    onSuccess: (_data, account) => {
+      queryClient.setQueryData<Account[]>(['accounts'], (current = []) =>
+        current.filter((item) => item.id !== account.id),
+      )
+    },
+  })
+  const bindingId = revalidation.data?.id ?? binding.data?.id
   const detail = useQuery({
     queryKey: ['binding', bindingId],
     queryFn: () => getBinding(bindingId!),
@@ -50,7 +71,7 @@ export function AccountsPage({
     mutationFn: (session: BindingSession) => confirmBinding(session.id, csrfToken),
     onSuccess: setFinalSession,
   })
-  const currentSession = finalSession ?? detail.data ?? binding.data
+  const currentSession = finalSession ?? detail.data ?? revalidation.data ?? binding.data
   const selectedProfile = profiles.data?.find((item) => item.profile_ref === profileRef)
 
   return (
@@ -101,11 +122,68 @@ export function AccountsPage({
         {binding.isError && <p role="alert">无法启动绑定，请检查 Provider 配置后重试。</p>}
         <BindingStatus
           session={currentSession}
-          profileName={selectedProfile?.display_name ?? '所选环境'}
+          profileName={selectedProfile?.display_name ?? currentSession?.profile_ref ?? '所选环境'}
           confirming={confirm.isPending}
           onConfirm={(session) => confirm.mutate(session)}
         />
       </form>
+      <section aria-labelledby="bound-accounts-title">
+        <h2 id="bound-accounts-title">已绑定账号</h2>
+        {accounts.isError && <p role="alert">无法加载已绑定账号。</p>}
+        {accounts.data?.length === 0 && <p>暂无已绑定账号。</p>}
+        <div className="card-grid">
+          {accounts.data?.map((account) => {
+            const name = account.display_name ?? `@${account.username ?? account.x_user_id}`
+            return (
+              <article className="card" key={account.id}>
+                <h2>{name}</h2>
+                <p>@{account.username ?? account.x_user_id}</p>
+                <p>{account.provider_code} · {account.profile_ref}</p>
+                {account.session_status === 'REAUTH_REQUIRED' && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingAction({ kind: 'revalidate', account })}
+                  >
+                    重新验证 {name}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPendingAction({ kind: 'unbind', account })}
+                >
+                  解绑 {name}
+                </button>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+      {pendingAction && (
+        <section className="card" role="alertdialog" aria-label="确认账号操作">
+          <p>
+            {pendingAction.kind === 'revalidate'
+              ? '重新验证会打开该账号现有的浏览器环境。'
+              : '解绑会停止新扫描并删除本地会话引用。'}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (pendingAction.kind === 'revalidate') {
+                revalidation.mutate(pendingAction.account)
+              } else {
+                unbind.mutate(pendingAction.account)
+              }
+              setPendingAction(null)
+            }}
+          >
+            {pendingAction.kind === 'revalidate' ? '确认重新验证' : '确认解绑'}
+          </button>
+          <button type="button" onClick={() => setPendingAction(null)}>取消</button>
+        </section>
+      )}
+      {(revalidation.isError || unbind.isError) && (
+        <p role="alert">账号操作失败，数据可能已变化，请刷新后重试。</p>
+      )}
     </section>
   )
 }
