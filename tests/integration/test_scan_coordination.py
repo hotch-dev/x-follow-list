@@ -336,3 +336,32 @@ async def test_restart_recovers_worker_killed_between_claim_and_first_lease(tmp_
     await database.dispose()
     assert recovered == [run_id]
     assert status == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_restart_recovery_immediately_removes_partial_staging(tmp_path: Path) -> None:
+    database = await prepared_database(tmp_path)
+    coordinator = ScanCoordinator(database, lease_ttl=timedelta(milliseconds=1))
+    run_id = await coordinator.enqueue("u", "a", "partial-crash", "partial-crash")
+    claim = await coordinator.claim_next("worker-killed")
+    assert claim is not None
+    await coordinator.acquire_scan_leases(claim)
+    snapshots = SnapshotCommitService(database)
+    await snapshots.stage(run_id, "FOLLOWER", [ObservedMember("partial")])
+    await snapshots.complete_side(run_id, "FOLLOWER")
+    await asyncio.sleep(0.01)
+
+    recovered = await coordinator.recover_expired_runs()
+
+    async with database.session() as session:
+        staged = await session.scalar(
+            text("SELECT count(*) FROM scan_staging_memberships WHERE scan_run_id=:run"),
+            {"run": run_id},
+        )
+        progress = await session.scalar(
+            text("SELECT count(*) FROM scan_staging_progress WHERE scan_run_id=:run"),
+            {"run": run_id},
+        )
+    await database.dispose()
+    assert recovered == [run_id]
+    assert staged == progress == 0

@@ -15,6 +15,7 @@ from x_follow_list.application.snapshots import (
 from x_follow_list.config import RuntimeEnvironment, Settings
 from x_follow_list.persistence.database import Database
 from x_follow_list.persistence.migrations import alembic_config
+from x_follow_list.release.metrics import process_rss_bytes
 
 
 async def prepared_database(tmp_path: Path) -> Database:
@@ -162,10 +163,12 @@ async def test_fifty_thousand_members_per_side_stays_within_baseline(tmp_path: P
     await service.complete_side("large", "FOLLOWING")
     result = await service.commit("large")
     elapsed = perf_counter() - started
+    rss_bytes = process_rss_bytes()
 
     await database.dispose()
     assert result.follower_count == result.following_count == 50_000
     assert elapsed < 60
+    assert rss_bytes < 1536 * 1024 * 1024
 
 
 @pytest.mark.asyncio

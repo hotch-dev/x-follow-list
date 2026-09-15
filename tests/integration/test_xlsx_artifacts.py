@@ -297,3 +297,34 @@ async def test_failed_publish_leaves_no_partial_file_and_can_be_rebuilt(
     assert rebuilt["status"] == "READY"
     assert await asyncio.to_thread(Path(str(rebuilt["storage_path"])).is_file)
     await app.state.database.dispose()
+
+
+@pytest.mark.asyncio
+async def test_download_rejects_path_escape_and_hash_mismatch(tmp_path: Path) -> None:
+    app = await prepared_app(tmp_path)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url=ORIGIN
+    ) as client:
+        _owner, csrf = await login_and_seed(client, app)
+        created = await client.post(
+            "/api/v1/scan-runs/run/artifacts/xlsx", headers=headers(csrf)
+        )
+        artifact_id = str(created.json()["id"])
+        artifact_path = Path(str(created.json()["storage_path"]))
+        await asyncio.to_thread(artifact_path.write_bytes, b"tampered")
+
+        corrupted = await client.get(f"/api/v1/artifacts/{artifact_id}/download")
+
+        outside = tmp_path / "outside.xlsx"
+        await asyncio.to_thread(outside.write_bytes, b"outside")
+        async with app.state.database.session() as session:
+            await session.execute(
+                text("UPDATE artifacts SET storage_path=:path WHERE id=:id"),
+                {"path": str(outside), "id": artifact_id},
+            )
+            await session.commit()
+        escaped = await client.get(f"/api/v1/artifacts/{artifact_id}/download")
+
+    await app.state.database.dispose()
+    assert corrupted.status_code == 404
+    assert escaped.status_code == 404

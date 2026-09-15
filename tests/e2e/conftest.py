@@ -18,7 +18,12 @@ def relationship_payload(side: str, page: int, scenario: str) -> dict[str, objec
     ids = ["101", "102"] if page == 1 else ["102", "103"]
     cursor = "page-2" if page == 1 else None
     terminal = page >= 2
-    if scenario == "duplicate_cursor":
+    if scenario in {"phase_a_baseline", "phase_a_changed"}:
+        ids = ["101", "102"]
+        if scenario == "phase_a_changed" and side == "FOLLOWER":
+            ids = ["101"]
+        cursor, terminal = None, True
+    elif scenario == "duplicate_cursor":
         ids, cursor, terminal = (["101"], "stuck", page >= 3)
     elif scenario == "empty_payload":
         ids, cursor, terminal = ([], f"empty-{page}", page >= 3)
