@@ -1,7 +1,7 @@
 # X 关注关系监控——阶段 A 开发计划
 
-> 状态：已完成 0.14.1（A-01 至 A-14 已完成，production worker 接线已补齐）
-> 日期：2026-09-15
+> 状态：已完成 0.14.2（A-01 至 A-14 已完成，投产加固进行中）
+> 日期：2026-09-16
 > 输入：需求基线 1.3 + [阶段 A 技术设计](./phase-a-technical-design.md) 0.1  
 > 目标：可按任务顺序直接实施、测试和验收
 
@@ -279,4 +279,10 @@ flowchart LR
 
 ## 7. 立即执行的下一项
 
-A-01 至 A-14 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)、[A-14](./docs/tdd/a-14-release-gates.tdd.md)。审计发现并补齐的 production worker 接线另见 [A-14 worker runtime 证据](./docs/tdd/a-14-worker-runtime.tdd.md)。阶段 A 已收口；下一开发项按第 6 节进入阶段 B。AdsPower 按用户决定不再测试，不是延期项，也不声明真实环境通过。
+A-01 至 A-14 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)、[A-14](./docs/tdd/a-14-release-gates.tdd.md)。审计发现并补齐的 production worker 接线另见 [A-14 worker runtime 证据](./docs/tdd/a-14-worker-runtime.tdd.md)。阶段 A 功能已收口；投产前先完成第 8 节加固，再按第 6 节进入阶段 B。AdsPower 按用户决定不再测试，不是延期项，也不声明真实环境通过。
+
+## 8. V1 投产加固（进行中）
+
+- 已完成：`/health/ready` 增加主存储写入探针和可配置的剩余空间阈值（默认 2 GiB），失败时返回 503；见 [TDD 证据](./docs/tdd/v1-storage-readiness.tdd.md)。
+- 待完成：worker 心跳与浏览器可启动性检查；磁盘不足时拒绝新扫描；过期 artifact 和 staging 的周期性物理清理；可操作的备份/恢复演练；确定 Direct Chrome worker 的部署拓扑并完成实际部署验收。
+- 发布范围决策：AdsPower 不再测试或纳入当前发布验证；现有 API 默认仍会暴露 AdsPower 配置入口，投产前需关闭。不得声明真实 X 页面兼容性已验证。
