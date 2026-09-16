@@ -1,3 +1,4 @@
+import asyncio
 import re
 from collections.abc import Awaitable, Callable
 from typing import Final
@@ -26,7 +27,7 @@ from x_follow_list.browser.registry import BrowserProviderRegistry
 from x_follow_list.config import Settings
 from x_follow_list.observability.logging import configure_logging, log_context
 from x_follow_list.persistence.database import Database
-from x_follow_list.persistence.readiness import database_is_ready
+from x_follow_list.persistence.readiness import database_is_ready, storage_readiness
 from x_follow_list.security.bootstrap import BootstrapTokenManager
 
 SERVICE_NAME: Final = "x-follow-list-api"
@@ -134,13 +135,23 @@ def create_app(
 
     @app.get("/health/ready", tags=["health"])
     async def readiness() -> JSONResponse:
-        ready = await database_is_ready(database)
+        database_ready, (storage_status, disk_status) = await asyncio.gather(
+            database_is_ready(database),
+            asyncio.to_thread(
+                storage_readiness,
+                runtime_settings.data_dir,
+                runtime_settings.min_free_disk_bytes,
+            ),
+        )
+        ready = database_ready and storage_status == "ready" and disk_status == "ready"
         return JSONResponse(
             status_code=200 if ready else 503,
             content={
                 "service": SERVICE_NAME,
                 "status": "ready" if ready else "not_ready",
-                "database": "ready" if ready else "unavailable",
+                "database": "ready" if database_ready else "unavailable",
+                "storage": storage_status,
+                "disk": disk_status,
             },
         )
 

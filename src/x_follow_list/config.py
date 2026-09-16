@@ -27,6 +27,7 @@ class Settings(BaseModel):
     master_key: SecretStr | None = None
     bootstrap_token: SecretStr | None = None
     sqlite_busy_timeout_ms: int = Field(default=5000, ge=100, le=120_000)
+    min_free_disk_bytes: int = Field(default=2 * 1024**3, ge=0)
     session_ttl_seconds: int = Field(default=43_200, ge=300, le=604_800)
     app_origin: str = "http://127.0.0.1:8000"
     display_timezone: str = "UTC"
@@ -84,6 +85,7 @@ class Settings(BaseModel):
             "X_FOLLOW_LIST_MASTER_KEY": "master_key",
             "X_FOLLOW_LIST_BOOTSTRAP_TOKEN": "bootstrap_token",
             "X_FOLLOW_LIST_SQLITE_BUSY_TIMEOUT_MS": "sqlite_busy_timeout_ms",
+            "X_FOLLOW_LIST_MIN_FREE_DISK_BYTES": "min_free_disk_bytes",
             "X_FOLLOW_LIST_SESSION_TTL_SECONDS": "session_ttl_seconds",
             "X_FOLLOW_LIST_APP_ORIGIN": "app_origin",
             "X_FOLLOW_LIST_DISPLAY_TIMEZONE": "display_timezone",
