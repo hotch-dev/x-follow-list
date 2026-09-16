@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import shutil
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import text
@@ -12,6 +13,16 @@ from x_follow_list.persistence.database import Database
 from x_follow_list.persistence.migrations import HEAD_REVISION
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class StorageReadiness:
+    storage: str
+    disk: str
+
+    @property
+    def is_ready(self) -> bool:
+        return self.storage == "ready" and self.disk == "ready"
 
 
 async def database_is_ready(database: Database) -> bool:
@@ -35,18 +46,18 @@ async def database_is_ready(database: Database) -> bool:
     return True
 
 
-def storage_readiness(data_dir: Path, min_free_disk_bytes: int) -> tuple[str, str]:
+def storage_readiness(data_dir: Path, min_free_disk_bytes: int) -> StorageReadiness:
     try:
         with tempfile.TemporaryFile(dir=data_dir) as probe:
             probe.write(b"readiness")
             probe.flush()
     except OSError:
         logger.warning("storage readiness check failed")
-        return "unavailable", "unavailable"
+        return StorageReadiness("unavailable", "unavailable")
 
     try:
         free_bytes = shutil.disk_usage(data_dir).free
     except OSError:
         logger.warning("disk readiness check failed")
-        return "ready", "unavailable"
-    return "ready", "ready" if free_bytes >= min_free_disk_bytes else "low"
+        return StorageReadiness("ready", "unavailable")
+    return StorageReadiness("ready", "ready" if free_bytes >= min_free_disk_bytes else "low")

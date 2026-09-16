@@ -9,7 +9,7 @@
 1. 先按照 `docs/backup-restore.md` 生成并校验备份。
 2. 执行 `python -m alembic upgrade head` 完成迁移。
 3. 在 `deploy` 目录执行 `docker compose up -d --build`。
-4. API 存活检查为 `/health/live`，就绪健康检查为 `/health/ready`；只有后者返回 200 才接入流量。
+4. API 存活检查为 `/health/live`；`/health/ready` 仅在数据库迁移正确、主存储可写且剩余空间达到 `X_FOLLOW_LIST_MIN_FREE_DISK_BYTES`（默认 2 GiB）时返回 200。只有后者返回 200 才接入流量。
 5. Direct Chrome 需要持久化 browser profile。容器模式需确认宿主机图形/浏览器能力；不具备时应在受控宿主机运行 worker。
 
 服务只绑定到环回地址。若经反向代理公开，必须启用 TLS、限制管理端来源，并将 `X_FOLLOW_LIST_APP_ORIGIN` 设置为唯一外部 origin。

@@ -135,7 +135,7 @@ def create_app(
 
     @app.get("/health/ready", tags=["health"])
     async def readiness() -> JSONResponse:
-        database_ready, (storage_status, disk_status) = await asyncio.gather(
+        database_ready, storage = await asyncio.gather(
             database_is_ready(database),
             asyncio.to_thread(
                 storage_readiness,
@@ -143,15 +143,15 @@ def create_app(
                 runtime_settings.min_free_disk_bytes,
             ),
         )
-        ready = database_ready and storage_status == "ready" and disk_status == "ready"
+        ready = database_ready and storage.is_ready
         return JSONResponse(
             status_code=200 if ready else 503,
             content={
                 "service": SERVICE_NAME,
                 "status": "ready" if ready else "not_ready",
                 "database": "ready" if database_ready else "unavailable",
-                "storage": storage_status,
-                "disk": disk_status,
+                "storage": storage.storage,
+                "disk": storage.disk,
             },
         )
 
