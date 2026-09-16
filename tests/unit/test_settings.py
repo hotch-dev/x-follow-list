@@ -13,6 +13,7 @@ def test_settings_load_typed_values_from_environment(tmp_path: Path) -> None:
             "X_FOLLOW_LIST_DATA_DIR": str(tmp_path),
             "X_FOLLOW_LIST_SQLITE_BUSY_TIMEOUT_MS": "7250",
             "X_FOLLOW_LIST_SESSION_TTL_SECONDS": "7200",
+            "X_FOLLOW_LIST_MIN_FREE_DISK_BYTES": "4096",
             "X_FOLLOW_LIST_APP_ORIGIN": "https://monitor.example/",
             "X_FOLLOW_LIST_LOG_LEVEL": "debug",
         }
@@ -22,6 +23,7 @@ def test_settings_load_typed_values_from_environment(tmp_path: Path) -> None:
     assert settings.data_dir == tmp_path
     assert settings.sqlite_busy_timeout_ms == 7250
     assert settings.session_ttl_seconds == 7200
+    assert settings.min_free_disk_bytes == 4096
     assert settings.app_origin == "https://monitor.example"
     assert settings.log_level == "DEBUG"
     assert settings.database_path == tmp_path / "x-follow-list.sqlite3"
@@ -48,5 +50,14 @@ def test_settings_reject_invalid_values_without_silent_fallback(tmp_path: Path) 
                 "X_FOLLOW_LIST_ENV": "test",
                 "X_FOLLOW_LIST_DATA_DIR": str(tmp_path),
                 "X_FOLLOW_LIST_SQLITE_BUSY_TIMEOUT_MS": "not-an-integer",
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        Settings.from_env(
+            {
+                "X_FOLLOW_LIST_ENV": "test",
+                "X_FOLLOW_LIST_DATA_DIR": str(tmp_path),
+                "X_FOLLOW_LIST_MIN_FREE_DISK_BYTES": "-1",
             }
         )
