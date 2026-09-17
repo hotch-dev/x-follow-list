@@ -25,6 +25,7 @@ EXPECTED_TABLES = {
     "relationship_states",
     "relationship_events",
     "browser_bind_sessions",
+    "account_rules",
 }
 
 
