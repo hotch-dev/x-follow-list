@@ -7,6 +7,10 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+from x_follow_list.application.rule_conflicts import (
+    open_blocklist_conflict,
+    resolve_blocklist_conflict,
+)
 from x_follow_list.application.scan_coordination import (
     LeaseLostError,
     ResourceLease,
@@ -369,6 +373,34 @@ class SnapshotCommitService:
                         ),
                         event_parameters,
                     )
+                blocklist_rules = (
+                    await session.execute(
+                        text(
+                            "SELECT subject_x_user_id,reason FROM account_rules "
+                            "WHERE x_account_id=:account AND rule_type='BUSINESS_BLOCKLIST'"
+                        ),
+                        {"account": account_id},
+                    )
+                ).mappings().all()
+                for rule in blocklist_rules:
+                    subject = str(rule["subject_x_user_id"])
+                    if current.get(subject, _CurrentMember()).i_follow:
+                        await open_blocklist_conflict(
+                            session,
+                            account_id=account_id,
+                            subject_x_user_id=subject,
+                            scan_run_id=run_id,
+                            source_key=f"scan:{run_id}",
+                            reason=str(rule["reason"]),
+                            now=now,
+                        )
+                    else:
+                        await resolve_blocklist_conflict(
+                            session,
+                            account_id=account_id,
+                            subject_x_user_id=subject,
+                            now=now,
+                        )
                 self._fault("after_events")
                 await session.execute(
                     text(

@@ -8,6 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 from alembic import command
+from fastapi import FastAPI
 from pydantic import SecretStr
 from sqlalchemy import text
 
@@ -19,7 +20,7 @@ from x_follow_list.persistence.migrations import alembic_config
 ORIGIN = "http://test"
 
 
-async def prepared_app(tmp_path: Path):  # type: ignore[no-untyped-def]
+async def prepared_app(tmp_path: Path) -> FastAPI:
     settings = Settings(
         environment=RuntimeEnvironment.TEST,
         data_dir=tmp_path,
@@ -30,7 +31,7 @@ async def prepared_app(tmp_path: Path):  # type: ignore[no-untyped-def]
     return create_app(settings)
 
 
-async def seed_owner(client: httpx.AsyncClient, app: object) -> str:
+async def seed_owner(client: httpx.AsyncClient, app: FastAPI) -> str:
     bootstrap = await client.post(
         "/api/v1/auth/bootstrap",
         headers={"Origin": ORIGIN},
@@ -47,7 +48,7 @@ async def seed_owner(client: httpx.AsyncClient, app: object) -> str:
     )
     owner = str(bootstrap.json()["id"])
     now = datetime.now(UTC).isoformat()
-    database = app.state.database  # type: ignore[attr-defined]
+    database = app.state.database
     async with database.session() as session:
         await session.execute(
             text(
@@ -83,8 +84,8 @@ def headers(csrf: str, key: str) -> dict[str, str]:
     return {"Origin": ORIGIN, "X-CSRF-Token": csrf, "Idempotency-Key": key}
 
 
-async def commit_scan(app: object, run_id: str, following: list[str]) -> None:
-    database = app.state.database  # type: ignore[attr-defined]
+async def commit_scan(app: FastAPI, run_id: str, following: list[str]) -> None:
+    database = app.state.database
     async with database.session() as session:
         await session.execute(
             text(
@@ -143,7 +144,12 @@ async def test_rule_api_is_owner_scoped_mutually_exclusive_and_audited(tmp_path:
         bad_csrf = await client.post(
             "/api/v1/account-rules",
             headers={"Origin": ORIGIN, "Idempotency-Key": "bad-csrf"},
-            json={"x_account_id": "account", "subject_x_user_id": "77", "rule_type": "ALLOWLIST", "reason": "ok"},
+            json={
+                "x_account_id": "account",
+                "subject_x_user_id": "77",
+                "rule_type": "ALLOWLIST",
+                "reason": "ok",
+            },
         )
         assert created.status_code == 201
         deleted = await client.request(
@@ -159,7 +165,14 @@ async def test_rule_api_is_owner_scoped_mutually_exclusive_and_audited(tmp_path:
             json={"version": 1},
         )
     async with app.state.database.session() as session:
-        actions = (await session.scalars(text("SELECT action FROM audit_logs WHERE resource_type='account_rule' ORDER BY created_at,id"))).all()
+        actions = (
+            await session.scalars(
+                text(
+                    "SELECT action FROM audit_logs WHERE resource_type='account_rule' "
+                    "ORDER BY created_at,id"
+                )
+            )
+        ).all()
     await app.state.database.dispose()
 
     assert created.status_code == repeated.status_code == 201
@@ -186,15 +199,28 @@ async def test_blocklist_conflict_uses_latest_snapshot_and_opens_new_episode_aft
         created = await client.post(
             "/api/v1/account-rules",
             headers=headers(csrf, "after-baseline"),
-            json={"x_account_id": "account", "subject_x_user_id": "42", "rule_type": "BUSINESS_BLOCKLIST", "reason": "Risk review"},
+            json={
+                "x_account_id": "account",
+                "subject_x_user_id": "42",
+                "rule_type": "BUSINESS_BLOCKLIST",
+                "reason": "Risk review",
+            },
         )
-        first = await client.get("/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=NEW")
+        first = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=NEW"
+        )
         await commit_scan(app, "still-following", ["42"])
-        repeated = await client.get("/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=NEW")
+        repeated = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=NEW"
+        )
         await commit_scan(app, "unfollowed", [])
-        resolved = await client.get("/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=RESOLVED")
+        resolved = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=RESOLVED"
+        )
         await commit_scan(app, "followed-again", ["42"])
-        reopened = await client.get("/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=NEW")
+        reopened = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=NEW"
+        )
     await app.state.database.dispose()
 
     assert created.status_code == 201
@@ -208,18 +234,29 @@ async def test_blocklist_conflict_uses_latest_snapshot_and_opens_new_episode_aft
 
 
 @pytest.mark.asyncio
-async def test_baseline_scan_detects_existing_blocklist_without_prior_relationship_event(tmp_path: Path) -> None:
+async def test_baseline_scan_detects_existing_blocklist_without_prior_relationship_event(
+    tmp_path: Path,
+) -> None:
     app = await prepared_app(tmp_path)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
         csrf = await seed_owner(client, app)
         created = await client.post(
             "/api/v1/account-rules",
             headers=headers(csrf, "before-baseline"),
-            json={"x_account_id": "account", "subject_x_user_id": "42", "rule_type": "BUSINESS_BLOCKLIST", "reason": "Risk review"},
+            json={
+                "x_account_id": "account",
+                "subject_x_user_id": "42",
+                "rule_type": "BUSINESS_BLOCKLIST",
+                "reason": "Risk review",
+            },
         )
-        before = await client.get("/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT")
+        before = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT"
+        )
         await commit_scan(app, "baseline", ["42"])
-        after = await client.get("/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT")
+        after = await client.get(
+            "/api/v1/relationship-events?x_account_id=account&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT"
+        )
     await app.state.database.dispose()
 
     assert created.json()["scan_required"] is True

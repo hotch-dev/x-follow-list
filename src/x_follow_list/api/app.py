@@ -9,11 +9,13 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from x_follow_list.api.account_rules import router as account_rules_router
 from x_follow_list.api.artifacts import router as artifacts_router
 from x_follow_list.api.auth import router as auth_router
 from x_follow_list.api.binding import router as binding_router
 from x_follow_list.api.monitoring import router as monitoring_router
 from x_follow_list.api.providers import router as providers_router
+from x_follow_list.application.account_rules import AccountRuleService
 from x_follow_list.application.auth import AuthService
 from x_follow_list.application.binding import BrowserBindingService
 from x_follow_list.application.errors import ApplicationError
@@ -49,6 +51,7 @@ def create_app(
     app.state.settings = runtime_settings
     app.state.database = database
     app.state.auth_service = auth_service
+    app.state.account_rule_service = AccountRuleService(database)
     app.state.browser_binding_service = BrowserBindingService(database)
     providers: tuple[BrowserProvider, ...] = (
         DirectChromeProvider(),
@@ -156,6 +159,7 @@ def create_app(
         )
 
     app.include_router(auth_router)
+    app.include_router(account_rules_router)
     app.include_router(artifacts_router)
     app.include_router(binding_router)
     app.include_router(monitoring_router)

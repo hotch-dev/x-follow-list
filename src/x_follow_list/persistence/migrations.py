@@ -7,7 +7,7 @@ from alembic.config import Config
 from x_follow_list.config import Settings
 
 BASELINE_REVISION = "0001_a02_baseline"
-HEAD_REVISION = "0009_a13_artifacts"
+HEAD_REVISION = "0010_b01_account_rules"
 
 
 def alembic_config(settings: Settings) -> Config:

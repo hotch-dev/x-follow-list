@@ -212,7 +212,8 @@ class MonitoringQueryService:
                     text(
                         "SELECT e.id,e.x_account_id,e.scan_run_id,e.subject_x_user_id,"
                         "m.username,m.display_name,e.category,e.event_type,e.status,e.version,"
-                        "e.created_at,e.acknowledged_at FROM relationship_events e "
+                        "e.created_at,e.acknowledged_at,e.rule_reason,e.last_seen_at,"
+                        "e.resolved_at FROM relationship_events e "
                         "LEFT JOIN relationship_states s ON s.x_account_id=e.x_account_id "
                         "AND s.subject_x_user_id=e.subject_x_user_id "
                         "LEFT JOIN snapshot_memberships m ON m.snapshot_id=s.last_snapshot_id "

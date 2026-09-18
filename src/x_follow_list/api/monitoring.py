@@ -82,6 +82,9 @@ class EventResponse(BaseModel):
     version: int
     created_at: datetime
     acknowledged_at: datetime | None = None
+    rule_reason: str | None = None
+    last_seen_at: datetime | None = None
+    resolved_at: datetime | None = None
 
 
 class EventListResponse(BaseModel):
