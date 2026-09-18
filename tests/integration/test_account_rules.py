@@ -9,11 +9,13 @@ import httpx
 import pytest
 from alembic import command
 from fastapi import FastAPI
+from openpyxl import load_workbook
 from pydantic import SecretStr
 from sqlalchemy import text
 
 from x_follow_list.api.app import create_app
 from x_follow_list.application.snapshots import ObservedMember, SnapshotCommitService
+from x_follow_list.artifacts.xlsx import XlsxArtifactService
 from x_follow_list.config import RuntimeEnvironment, Settings
 from x_follow_list.persistence.migrations import alembic_config
 
@@ -308,3 +310,42 @@ async def test_removed_blocklist_resolves_event_and_cannot_be_acknowledged_again
     assert removed.status_code == 204
     assert acknowledgement.status_code == 409
     assert [item["id"] for item in resolved.json()["items"]] == [event_id]
+
+
+@pytest.mark.asyncio
+async def test_xlsx_keeps_scan_time_blocklist_after_rule_is_removed(tmp_path: Path) -> None:
+    app = await prepared_app(tmp_path)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
+        csrf = await seed_owner(client, app)
+        created = await client.post(
+            "/api/v1/account-rules",
+            headers=headers(csrf, "export-rule"),
+            json={
+                "x_account_id": "account",
+                "subject_x_user_id": "42",
+                "rule_type": "BUSINESS_BLOCKLIST",
+                "reason": "=unsafe formula",
+            },
+        )
+        await commit_scan(app, "export-run", ["42"])
+        await client.request(
+            "DELETE",
+            f"/api/v1/account-rules/{created.json()['id']}",
+            headers=headers(csrf, "remove-export-rule"),
+            json={"version": 1},
+        )
+    artifact = await XlsxArtifactService(app.state.database, tmp_path / "artifacts").build(
+        "export-run"
+    )
+    workbook = load_workbook(artifact["storage_path"], read_only=True, data_only=False)
+    assert "BlocklistConflicts" in workbook.sheetnames
+    assert "Rules" in workbook.sheetnames
+    conflicts = list(workbook["BlocklistConflicts"].iter_rows(min_row=2, values_only=True))
+    rules = list(workbook["Rules"].iter_rows(min_row=2, values_only=True))
+    workbook.close()
+    await app.state.database.dispose()
+
+    assert len(conflicts) == len(rules) == 1
+    assert conflicts[0][0] == rules[0][0] == "42"
+    assert "'=unsafe formula" in conflicts[0]
+    assert "'=unsafe formula" in rules[0]

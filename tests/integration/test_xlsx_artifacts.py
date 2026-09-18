@@ -135,7 +135,7 @@ def headers(csrf: str) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_builds_six_snapshot_pinned_sheets_and_downloads_with_safe_headers(
+async def test_builds_snapshot_pinned_sheets_and_downloads_with_safe_headers(
     tmp_path: Path,
 ) -> None:
     app = await prepared_app(tmp_path)
@@ -176,6 +176,8 @@ async def test_builds_six_snapshot_pinned_sheets_and_downloads_with_safe_headers
         "NewFollowers",
         "Followers",
         "Following",
+        "BlocklistConflicts",
+        "Rules",
     ]
     summary: dict[object, object] = {
         row[0]: row[1]
