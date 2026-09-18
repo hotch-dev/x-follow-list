@@ -243,27 +243,34 @@ class MonitoringQueryService:
                 current = (
                     await connection.execute(
                         text(
-                            "SELECT e.version FROM relationship_events e "
+                            "SELECT e.version,e.status FROM relationship_events e "
                             "JOIN x_account_memberships m ON m.x_account_id=e.x_account_id "
                             "WHERE m.user_id=:user AND e.id=:event"
                         ),
                         {"user": user_id, "event": event_id},
                     )
-                ).scalar_one_or_none()
+                ).mappings().one_or_none()
                 if current is None:
                     raise ResourceNotFoundError
-                if int(current) != expected_version:
+                if int(current["version"]) != expected_version or current["status"] not in {
+                    "OPEN",
+                    "NEW",
+                }:
                     raise ApplicationError(
                         "RESOURCE_VERSION_CONFLICT", "Resource version has changed", 409
                     )
-                await connection.execute(
+                updated = await connection.execute(
                     text(
                         "UPDATE relationship_events SET status='ACKNOWLEDGED',"
                         "acknowledged_at=:now,version=version+1 "
-                        "WHERE id=:event AND version=:version"
+                        "WHERE id=:event AND version=:version AND status IN ('OPEN','NEW')"
                     ),
                     {"now": now, "event": event_id, "version": expected_version},
                 )
+                if updated.rowcount != 1:
+                    raise ApplicationError(
+                        "RESOURCE_VERSION_CONFLICT", "Resource version has changed", 409
+                    )
                 await connection.commit()
             except BaseException:
                 await connection.rollback()
