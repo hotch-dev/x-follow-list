@@ -26,6 +26,7 @@ EXPECTED_TABLES = {
     "relationship_events",
     "browser_bind_sessions",
     "account_rules",
+    "snapshot_rule_hits",
 }
 
 
