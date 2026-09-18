@@ -186,13 +186,15 @@ describe('A-12 dashboard journey', () => {
 
     expect(await screen.findByRole('heading', { name: 'X 账号管理' })).toBeVisible()
     expect(screen.getByRole('navigation', { name: '主导航' })).toBeVisible()
-    expect(screen.getAllByRole('link')).toHaveLength(5)
+    expect(screen.getAllByRole('link')).toHaveLength(6)
     await user.click(screen.getByRole('link', { name: '扫描任务' }))
     expect(await screen.findByRole('heading', { name: '扫描任务' })).toBeVisible()
     await user.click(screen.getByRole('link', { name: '关系结果' }))
     expect(await screen.findByRole('heading', { name: '关系结果' })).toBeVisible()
     await user.click(screen.getByRole('link', { name: '重点待处理' }))
     expect(await screen.findByRole('heading', { name: '重点待处理' })).toBeVisible()
+    await user.click(screen.getByRole('link', { name: '名单规则' }))
+    expect(await screen.findByRole('heading', { name: '名单规则' })).toBeVisible()
   })
 
   it('distinguishes an empty account list from a request failure', async () => {
