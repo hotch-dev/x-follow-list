@@ -382,38 +382,39 @@ class SnapshotCommitService:
                         {"account": account_id},
                     )
                 ).mappings().all()
-                if rules:
+                rule_hits = [
+                    {
+                        "snapshot": snapshot_id,
+                        "subject": str(rule["subject_x_user_id"]),
+                        "type": str(rule["rule_type"]),
+                        "reason": str(rule["reason"]),
+                        "following": current.get(
+                            str(rule["subject_x_user_id"]), _CurrentMember()
+                        ).i_follow,
+                    }
+                    for rule in rules
+                ]
+                if rule_hits:
                     await session.execute(
                         text(
                             "INSERT INTO snapshot_rule_hits "
                             "(snapshot_id,subject_x_user_id,rule_type,reason,i_follow) "
                             "VALUES (:snapshot,:subject,:type,:reason,:following)"
                         ),
-                        [
-                            {
-                                "snapshot": snapshot_id,
-                                "subject": str(rule["subject_x_user_id"]),
-                                "type": str(rule["rule_type"]),
-                                "reason": str(rule["reason"]),
-                                "following": current.get(
-                                    str(rule["subject_x_user_id"]), _CurrentMember()
-                                ).i_follow,
-                            }
-                            for rule in rules
-                        ],
+                        rule_hits,
                     )
-                for rule in rules:
-                    if rule["rule_type"] != "BUSINESS_BLOCKLIST":
+                for rule_hit in rule_hits:
+                    if rule_hit["type"] != "BUSINESS_BLOCKLIST":
                         continue
-                    subject = str(rule["subject_x_user_id"])
-                    if current.get(subject, _CurrentMember()).i_follow:
+                    subject = str(rule_hit["subject"])
+                    if rule_hit["following"]:
                         await open_blocklist_conflict(
                             session,
                             account_id=account_id,
                             subject_x_user_id=subject,
                             scan_run_id=run_id,
                             source_key=f"scan:{run_id}",
-                            reason=str(rule["reason"]),
+                            reason=str(rule_hit["reason"]),
                             now=now,
                         )
                     else:

@@ -143,12 +143,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T
 }
 
-function jsonMutation(body: object, csrfToken: string): RequestInit {
+function jsonMutation(
+  body: object,
+  csrfToken: string,
+  extraHeaders: Record<string, string> = {},
+): RequestInit {
   return {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-CSRF-Token': csrfToken,
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   }
@@ -280,12 +285,8 @@ export async function createAccountRule(
     ...jsonMutation(
       { x_account_id: accountId, subject_x_user_id: subjectId, rule_type: ruleType, reason },
       csrfToken,
+      { 'Idempotency-Key': crypto.randomUUID() },
     ),
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken,
-      'Idempotency-Key': crypto.randomUUID(),
-    },
   })
 }
 

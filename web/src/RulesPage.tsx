@@ -26,22 +26,22 @@ export function RulesPage({
     queryKey: ['account-rules', accountId],
     queryFn: () => listAccountRules(accountId),
   })
+  const refreshRules = () => {
+    void queryClient.invalidateQueries({ queryKey: ['account-rules', accountId] })
+    void queryClient.invalidateQueries({ queryKey: ['action-items', accountId] })
+  }
   const create = useMutation({
     mutationFn: () => createAccountRule(accountId, subjectId.trim(), ruleType, reason.trim(), csrfToken),
     onSuccess: (rule) => {
       setScanRequired(Boolean(rule.scan_required))
       setSubjectId('')
       setReason('')
-      void queryClient.invalidateQueries({ queryKey: ['account-rules', accountId] })
-      void queryClient.invalidateQueries({ queryKey: ['action-items', accountId] })
+      refreshRules()
     },
   })
   const remove = useMutation({
     mutationFn: (rule: AccountRule) => deleteAccountRule(rule, csrfToken),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['account-rules', accountId] })
-      void queryClient.invalidateQueries({ queryKey: ['action-items', accountId] })
-    },
+    onSuccess: refreshRules,
   })
 
   return (
