@@ -263,3 +263,48 @@ async def test_baseline_scan_detects_existing_blocklist_without_prior_relationsh
     assert before.json()["items"] == []
     assert len(after.json()["items"]) == 1
     assert after.json()["items"][0]["scan_run_id"] == "baseline"
+
+
+@pytest.mark.asyncio
+async def test_removed_blocklist_resolves_event_and_cannot_be_acknowledged_again(
+    tmp_path: Path,
+) -> None:
+    app = await prepared_app(tmp_path)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
+        csrf = await seed_owner(client, app)
+        await commit_scan(app, "baseline", ["42"])
+        created = await client.post(
+            "/api/v1/account-rules",
+            headers=headers(csrf, "create-rule"),
+            json={
+                "x_account_id": "account",
+                "subject_x_user_id": "42",
+                "rule_type": "BUSINESS_BLOCKLIST",
+                "reason": "Supplier risk",
+            },
+        )
+        active = await client.get(
+            "/api/v1/relationship-events?x_account_id=account"
+            "&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=NEW"
+        )
+        event_id = active.json()["items"][0]["id"]
+        removed = await client.request(
+            "DELETE",
+            f"/api/v1/account-rules/{created.json()['id']}",
+            headers=headers(csrf, "delete-rule"),
+            json={"version": 1},
+        )
+        acknowledgement = await client.post(
+            f"/api/v1/relationship-events/{event_id}/acknowledge",
+            headers=headers(csrf, "ack-resolved"),
+            json={"version": 2},
+        )
+        resolved = await client.get(
+            "/api/v1/relationship-events?x_account_id=account"
+            "&event_type=FOLLOWING_BLOCKLISTED_ACCOUNT&status=RESOLVED"
+        )
+    await app.state.database.dispose()
+
+    assert removed.status_code == 204
+    assert acknowledgement.status_code == 409
+    assert [item["id"] for item in resolved.json()["items"]] == [event_id]
