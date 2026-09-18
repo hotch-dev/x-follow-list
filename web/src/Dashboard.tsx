@@ -5,7 +5,7 @@ import { PageHeader } from './PageHeader'
 interface DashboardData {
   accounts: Account[]
   scans: ScanRun[]
-  actionItems: { id: string }[]
+  actionItems: { id: string; event_type: string }[]
 }
 
 const providerNames: Record<string, string> = {
@@ -32,6 +32,12 @@ export function Dashboard({ data }: { data: DashboardData }) {
   }
   const latestScan = data.scans[0]
   const lastSuccess = latestScan?.last_successful_scan_at ?? account.last_successful_scan_at
+  const unfollowedCount = data.actionItems.filter(
+    (item) => item.event_type === 'UNFOLLOWED_ME_AFTER_MUTUAL',
+  ).length
+  const blocklistedCount = data.actionItems.filter(
+    (item) => item.event_type === 'FOLLOWING_BLOCKLISTED_ACCOUNT',
+  ).length
 
   return (
     <div className="dashboard">
@@ -57,10 +63,11 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <a
           className="card action-card"
           href="/action-items"
-          aria-label={`互关后取消关注 ${data.actionItems.length} 项`}
+          aria-label={`互关后取消关注 ${unfollowedCount} 项${blocklistedCount ? `，关注黑名单 ${blocklistedCount} 项` : ''}`}
         >
           <span className="card-label">重点待处理</span>
-          <strong>互关后取消关注 {data.actionItems.length} 项</strong>
+          <strong>互关后取消关注 {unfollowedCount} 项</strong>
+          <span>关注黑名单 {blocklistedCount} 项</span>
           <span>查看并确认事件 →</span>
         </a>
       </section>

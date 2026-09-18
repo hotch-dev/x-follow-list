@@ -6,6 +6,7 @@ const items = [
   { href: '/scans', label: '扫描任务' },
   { href: '/relationships', label: '关系结果' },
   { href: '/action-items', label: '重点待处理' },
+  { href: '/rules', label: '名单规则' },
 ]
 
 export function Navigation({ path, onNavigate }: { path: string; onNavigate: (path: string) => void }) {

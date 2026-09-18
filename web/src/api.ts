@@ -52,6 +52,19 @@ export interface RelationshipEvent {
   version: number
   created_at: string
   acknowledged_at: string | null
+  rule_reason?: string | null
+  last_seen_at?: string | null
+  resolved_at?: string | null
+}
+
+export interface AccountRule {
+  id: string
+  x_account_id: string
+  subject_x_user_id: string
+  rule_type: 'ALLOWLIST' | 'BUSINESS_BLOCKLIST'
+  reason: string
+  version: number
+  scan_required?: boolean
 }
 
 export interface Relationship {
@@ -245,11 +258,43 @@ export async function listActionItems(accountId: string) {
   const query = new URLSearchParams({
     x_account_id: accountId,
     category: 'ACTION_ITEM',
-    event_type: 'UNFOLLOWED_ME_AFTER_MUTUAL',
     status: 'NEW',
     limit: '50',
   })
   return (await request<ItemList<RelationshipEvent>>(`/relationship-events?${query}`)).items
+}
+
+export async function listAccountRules(accountId: string) {
+  const query = new URLSearchParams({ x_account_id: accountId, limit: '50' })
+  return (await request<ItemList<AccountRule>>(`/account-rules?${query}`)).items
+}
+
+export async function createAccountRule(
+  accountId: string,
+  subjectId: string,
+  ruleType: AccountRule['rule_type'],
+  reason: string,
+  csrfToken: string,
+) {
+  return request<AccountRule>('/account-rules', {
+    ...jsonMutation(
+      { x_account_id: accountId, subject_x_user_id: subjectId, rule_type: ruleType, reason },
+      csrfToken,
+    ),
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+      'Idempotency-Key': crypto.randomUUID(),
+    },
+  })
+}
+
+export async function deleteAccountRule(rule: AccountRule, csrfToken: string) {
+  return request<void>(`/account-rules/${encodeURIComponent(rule.id)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+    body: JSON.stringify({ version: rule.version }),
+  })
 }
 
 export async function acknowledgeEvent(
@@ -271,7 +316,7 @@ export async function loadDashboard() {
   }
   const query = new URLSearchParams({
     x_account_id: account.id,
-    event_type: 'UNFOLLOWED_ME_AFTER_MUTUAL',
+    category: 'ACTION_ITEM',
     status: 'NEW',
     limit: '50',
   })

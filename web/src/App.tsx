@@ -8,6 +8,7 @@ import { Dashboard } from './Dashboard'
 import { LoginPanel } from './LoginPanel'
 import { Navigation } from './Navigation'
 import { RelationshipsPage } from './RelationshipsPage'
+import { RulesPage } from './RulesPage'
 import { ScansPage } from './ScansPage'
 import { getCsrfToken } from './session'
 
@@ -67,6 +68,9 @@ export function App() {
   }
   if (path === '/action-items' && accountId) {
     page = <ActionItemsPage accountId={accountId} csrfToken={csrfToken} />
+  }
+  if (path === '/rules' && accountId) {
+    page = <RulesPage accountId={accountId} csrfToken={csrfToken} />
   }
 
   return (

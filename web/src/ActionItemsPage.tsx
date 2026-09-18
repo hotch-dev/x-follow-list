@@ -29,9 +29,14 @@ export function ActionItemsPage({
       </PageHeader>
       {events.data?.map((event) => (
         <article className="card action-item" key={event.id}>
-          <p className="card-label">之前互关，现在仅我关注</p>
+          <p className="card-label">
+            {event.event_type === 'FOLLOWING_BLOCKLISTED_ACCOUNT'
+              ? '当前仍关注黑名单账号'
+              : '之前互关，现在仅我关注'}
+          </p>
           <h2>{event.display_name ?? `@${event.username ?? event.subject_x_user_id}`}</h2>
           <p>@{event.username ?? event.subject_x_user_id}</p>
+          {event.rule_reason && <p>{event.rule_reason}</p>}
           {acknowledgedId === event.id ? (
             <p className="status-line">已确认</p>
           ) : (
