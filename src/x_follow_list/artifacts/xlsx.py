@@ -23,6 +23,8 @@ SHEET_NAMES = (
     "NewFollowers",
     "Followers",
     "Following",
+    "BlocklistConflicts",
+    "Rules",
 )
 MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 ACCOUNT_HEADERS = (
@@ -195,6 +197,19 @@ class XlsxArtifactService:
                     )
                 ).mappings()
             ]
+            rule_hits = [
+                dict(row)
+                for row in (
+                    await session.execute(
+                        text(
+                            "SELECT subject_x_user_id,rule_type,reason,i_follow "
+                            "FROM snapshot_rule_hits WHERE snapshot_id=:snapshot "
+                            "ORDER BY subject_x_user_id"
+                        ),
+                        {"snapshot": snapshot_id},
+                    )
+                ).mappings()
+            ]
         by_id = {str(row["subject_x_user_id"]): row for row in memberships}
         event_ids: dict[str, dict[str, object]] = {}
         for event in events:
@@ -235,6 +250,39 @@ class XlsxArtifactService:
                     _format_local(detected, timezone_name),
                 )
 
+        def rule_rows(*, conflicts_only: bool) -> Iterator[Sequence[object]]:
+            yield (
+                "x_user_id",
+                "username",
+                "display_name",
+                "rule_type",
+                "reason",
+                "i_follow",
+                "scan_run_id",
+                "snapshot_id",
+                "captured_at_utc",
+                "captured_at_local",
+            )
+            for rule in rule_hits:
+                if conflicts_only and not (
+                    rule["rule_type"] == "BUSINESS_BLOCKLIST" and rule["i_follow"]
+                ):
+                    continue
+                subject_id = str(rule["subject_x_user_id"])
+                member = by_id.get(subject_id)
+                yield (
+                    subject_id,
+                    member["username"] if member else None,
+                    member["display_name"] if member else None,
+                    rule["rule_type"],
+                    rule["reason"],
+                    bool(rule["i_follow"]),
+                    run_id,
+                    snapshot_id,
+                    _format_utc(captured),
+                    _format_local(captured, timezone_name),
+                )
+
         return (
             ("Summary", summary),
             (
@@ -257,6 +305,8 @@ class XlsxArtifactService:
             ),
             ("Followers", selected_rows(lambda row, _event: bool(row["follows_me"]))),
             ("Following", selected_rows(lambda row, _event: bool(row["i_follow"]))),
+            ("BlocklistConflicts", rule_rows(conflicts_only=True)),
+            ("Rules", rule_rows(conflicts_only=False)),
         )
 
     def _artifact_path(self, scan_run_id: str, artifact_id: str) -> Path:

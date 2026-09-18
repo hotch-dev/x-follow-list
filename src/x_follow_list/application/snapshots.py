@@ -373,16 +373,38 @@ class SnapshotCommitService:
                         ),
                         event_parameters,
                     )
-                blocklist_rules = (
+                rules = (
                     await session.execute(
                         text(
-                            "SELECT subject_x_user_id,reason FROM account_rules "
-                            "WHERE x_account_id=:account AND rule_type='BUSINESS_BLOCKLIST'"
+                            "SELECT subject_x_user_id,rule_type,reason FROM account_rules "
+                            "WHERE x_account_id=:account"
                         ),
                         {"account": account_id},
                     )
                 ).mappings().all()
-                for rule in blocklist_rules:
+                if rules:
+                    await session.execute(
+                        text(
+                            "INSERT INTO snapshot_rule_hits "
+                            "(snapshot_id,subject_x_user_id,rule_type,reason,i_follow) "
+                            "VALUES (:snapshot,:subject,:type,:reason,:following)"
+                        ),
+                        [
+                            {
+                                "snapshot": snapshot_id,
+                                "subject": str(rule["subject_x_user_id"]),
+                                "type": str(rule["rule_type"]),
+                                "reason": str(rule["reason"]),
+                                "following": current.get(
+                                    str(rule["subject_x_user_id"]), _CurrentMember()
+                                ).i_follow,
+                            }
+                            for rule in rules
+                        ],
+                    )
+                for rule in rules:
+                    if rule["rule_type"] != "BUSINESS_BLOCKLIST":
+                        continue
                     subject = str(rule["subject_x_user_id"])
                     if current.get(subject, _CurrentMember()).i_follow:
                         await open_blocklist_conflict(
