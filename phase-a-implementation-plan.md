@@ -1,7 +1,7 @@
 # X 关注关系监控——阶段 A 开发计划
 
-> 状态：已完成 0.14.2（A-01 至 A-14 已完成，投产加固进行中）
-> 日期：2026-09-16
+> 状态：已完成 0.15.0（A-01 至 A-14、B-01 名单规则与黑名单冲突闭环已完成，投产加固进行中）
+> 日期：2026-09-19
 > 输入：需求基线 1.3 + [阶段 A 技术设计](./phase-a-technical-design.md) 0.1  
 > 目标：可按任务顺序直接实施、测试和验收
 
@@ -271,15 +271,17 @@ flowchart LR
 
 阶段 A 完成后，按以下顺序扩展，不回改采集核心：
 
-1. `account_rules` + 白名单/业务黑名单 UI。
-2. 在 snapshot commit 后运行 `G ∩ B` 评估，生成 `FOLLOWING_BLOCKLISTED_ACCOUNT`。
+1. **已完成（B-01）**：`account_rules` + 白名单/业务黑名单 UI；规则互斥、授权隔离、审计、幂等和最新快照即时评估均已覆盖。
+2. **已完成（B-01）**：在 snapshot commit 后运行 `G ∩ B` 评估，生成 `FOLLOWING_BLOCKLISTED_ACCOUNT`；持续命中去重、自动解决、再次发生新 episode、总览/待处理页和快照固定 XLSX 均已覆盖。
 3. `notification_intents` + `notification_channel_configs` + `notification_deliveries`。
 4. Telegram/SMTP Channel Adapter 和共享契约测试。
 5. APScheduler 周期触发、30 天清理、审计和通知重试。
 
+B-01 的 TDD 证据见 [名单规则与黑名单冲突闭环](./docs/tdd/b-01-account-rules-blocklist.tdd.md)。白名单已经可以维护且与业务黑名单互斥；“长期未回关阈值提醒”的白名单抑制要随该提醒模块一并实现，不能因名单表已存在而声明完成。黑名单冲突当前提供站内待处理项和 XLSX，不包含尚未实现的外部通知。
+
 ## 7. 立即执行的下一项
 
-A-01 至 A-14 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)、[A-14](./docs/tdd/a-14-release-gates.tdd.md)。审计发现并补齐的 production worker 接线另见 [A-14 worker runtime 证据](./docs/tdd/a-14-worker-runtime.tdd.md)。阶段 A 功能已收口；投产前先完成第 8 节加固，再按第 6 节进入阶段 B。AdsPower 按用户决定不再测试，不是延期项，也不声明真实环境通过。
+A-01 至 A-14 已完成，并保留对应 TDD 证据：[A-01](./docs/tdd/a-01-bootstrap.tdd.md)、[A-02](./docs/tdd/a-02-config-logging-database.tdd.md)、[A-03](./docs/tdd/a-03-owner-auth.tdd.md)、[A-04](./docs/tdd/a-04-relationship-domain.tdd.md)、[A-05](./docs/tdd/a-05-snapshot-persistence.tdd.md)、[A-06](./docs/tdd/a-06-scan-coordination.tdd.md)、[A-07](./docs/tdd/a-07-browser-provider-contract.tdd.md)、[A-08](./docs/tdd/a-08-local-x-collector.tdd.md)、[A-09](./docs/tdd/a-09-direct-chrome-binding.tdd.md)、[A-10](./docs/tdd/a-10-adspower-provider.tdd.md)、[A-11](./docs/tdd/a-11-scan-relationship-api.tdd.md)、[A-12](./docs/tdd/a-12-react-admin.tdd.md)、[A-13](./docs/tdd/a-13-xlsx-artifacts.tdd.md)、[A-14](./docs/tdd/a-14-release-gates.tdd.md)。审计发现并补齐的 production worker 接线另见 [A-14 worker runtime 证据](./docs/tdd/a-14-worker-runtime.tdd.md)。B-01 名单规则与黑名单冲突闭环也已完成，见 [B-01 TDD 证据](./docs/tdd/b-01-account-rules-blocklist.tdd.md)。下一项产品能力是通知数据模型与 Channel Adapter；投产加固仍按第 8 节推进。AdsPower 按用户决定不再测试，不是延期项，也不声明真实环境通过。
 
 ## 8. V1 投产加固（进行中）
 
