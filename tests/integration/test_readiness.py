@@ -1,5 +1,4 @@
 import asyncio
-import shutil
 import tempfile
 from pathlib import Path
 
@@ -51,11 +50,10 @@ async def test_readiness_fails_closed_when_database_is_not_migrated(tmp_path: Pa
 
 @pytest.mark.asyncio
 async def test_readiness_rejects_low_disk_without_exposing_paths(tmp_path: Path) -> None:
-    available = shutil.disk_usage(tmp_path).free
     settings = Settings(
         environment=RuntimeEnvironment.TEST,
         data_dir=tmp_path,
-        min_free_disk_bytes=available + 1,
+        min_free_disk_bytes=2**63 - 1,
     )
     await asyncio.to_thread(command.upgrade, alembic_config(settings), "head")
     app = create_app(settings)
