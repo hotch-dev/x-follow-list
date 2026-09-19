@@ -131,6 +131,16 @@ async def test_rule_api_is_owner_scoped_mutually_exclusive_and_audited(tmp_path:
                 "reason": "Do not follow this supplier",
             },
         )
+        reused_key_with_other_payload = await client.post(
+            "/api/v1/account-rules",
+            headers=headers(csrf, "rule-one"),
+            json={
+                "x_account_id": "account",
+                "subject_x_user_id": "43",
+                "rule_type": "BUSINESS_BLOCKLIST",
+                "reason": "A different subject",
+            },
+        )
         conflicting = await client.post(
             "/api/v1/account-rules",
             headers=headers(csrf, "rule-two"),
@@ -154,6 +164,12 @@ async def test_rule_api_is_owner_scoped_mutually_exclusive_and_audited(tmp_path:
             },
         )
         assert created.status_code == 201
+        stale_version = await client.request(
+            "DELETE",
+            f"/api/v1/account-rules/{created.json()['id']}",
+            headers=headers(csrf, "stale-version"),
+            json={"version": 2},
+        )
         deleted = await client.request(
             "DELETE",
             f"/api/v1/account-rules/{created.json()['id']}",
@@ -180,6 +196,8 @@ async def test_rule_api_is_owner_scoped_mutually_exclusive_and_audited(tmp_path:
     assert created.status_code == repeated.status_code == 201
     assert created.json() == repeated.json()
     assert created.json()["scan_required"] is True
+    assert reused_key_with_other_payload.status_code == 409
+    assert stale_version.status_code == 409
     assert conflicting.status_code == 409
     assert listed.status_code == 200
     assert [item["subject_x_user_id"] for item in listed.json()["items"]] == ["42"]
@@ -188,6 +206,67 @@ async def test_rule_api_is_owner_scoped_mutually_exclusive_and_audited(tmp_path:
     assert deleted.status_code == 204
     assert stale.status_code == 404
     assert actions == ["ACCOUNT_RULE_CREATED", "ACCOUNT_RULE_DELETED"]
+
+
+@pytest.mark.asyncio
+async def test_foreign_account_and_rule_ids_are_not_discoverable(tmp_path: Path) -> None:
+    app = await prepared_app(tmp_path)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
+        csrf = await seed_owner(client, app)
+        now = datetime.now(UTC).isoformat()
+        async with app.state.database.session() as session:
+            await session.execute(
+                text("INSERT INTO users VALUES ('other','other@test','hash','OWNER',:now,:now)"),
+                {"now": now},
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO browser_provider_configs "
+                    "(id,owner_user_id,provider_code,config_version,display_name,config_json,"
+                    "created_at,updated_at) VALUES "
+                    "('other-provider','other','DIRECT_CHROME',1,'Other','{}',:now,:now)"
+                ),
+                {"now": now},
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO x_accounts "
+                    "(id,owner_user_id,provider_config_id,profile_ref,profile_ref_hash,x_user_id,"
+                    "status,created_at,updated_at) VALUES "
+                    "('foreign','other','other-provider','p','h','other-x','READY',:now,:now)"
+                ),
+                {"now": now},
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO account_rules "
+                    "(id,x_account_id,subject_x_user_id,rule_type,reason,created_by,"
+                    "created_at,updated_at) VALUES "
+                    "('foreign-rule','foreign','42','BUSINESS_BLOCKLIST','private','other',:now,:now)"
+                ),
+                {"now": now},
+            )
+            await session.commit()
+        listing = await client.get("/api/v1/account-rules?x_account_id=foreign")
+        creation = await client.post(
+            "/api/v1/account-rules",
+            headers=headers(csrf, "foreign-creation"),
+            json={
+                "x_account_id": "foreign",
+                "subject_x_user_id": "99",
+                "rule_type": "ALLOWLIST",
+                "reason": "private",
+            },
+        )
+        deletion = await client.request(
+            "DELETE",
+            "/api/v1/account-rules/foreign-rule",
+            headers=headers(csrf, "foreign-deletion"),
+            json={"version": 1},
+        )
+    await app.state.database.dispose()
+
+    assert listing.status_code == creation.status_code == deletion.status_code == 404
 
 
 @pytest.mark.asyncio
