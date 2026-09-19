@@ -22,6 +22,20 @@ npm install
 
 ## 开发入口
 
+Windows 本机可在仓库根目录执行一键启动脚本。脚本会设置开发环境与同源地址、升级数据库、隐藏启动 API/worker/web，并等待 API readiness 和前端可访问；日志及 PID 写入 `data\run`：
+
+```powershell
+pwsh -File .\scripts\start-windows.ps1
+
+# node 不在 PATH 时可明确指定受支持的 Node.js
+pwsh -File .\scripts\start-windows.ps1 `
+  -NodePath 'C:\path\to\supported\node.exe'
+```
+
+首次运行完成后，脚本会显示 `data\bootstrap-token` 位置。使用 `http://127.0.0.1:5173` 作为精确 Origin 创建 OWNER；登录后若 Provider 列表为空，需要先创建一个 `DIRECT_CHROME` 配置。脚本不会读取密码、自动登录 X 或写入任何真实凭据。
+
+也可以分别启动三个开发进程：
+
 ```powershell
 # API: http://127.0.0.1:8000/health/live
 & '.\.venv\Scripts\x-follow-list-api.exe'
@@ -53,7 +67,7 @@ Invoke-RestMethod http://127.0.0.1:8000/health/ready
 首次启动 API 时，如果没有配置 `X_FOLLOW_LIST_BOOTSTRAP_TOKEN`，系统会在受保护的数据目录生成 `bootstrap-token` 文件。读取该文件后，以配置的精确 Origin 创建唯一 OWNER：
 
 ```powershell
-$headers = @{ Origin = 'http://127.0.0.1:8000' }
+$headers = @{ Origin = 'http://127.0.0.1:5173' }
 $body = @{
     login = 'owner@example.test'
     password = '<at-least-12-characters>'
